@@ -2,6 +2,14 @@
 
 A comprehensive Flutter mobile application for comparing cab fares across multiple ride-sharing services. FareFinder helps users make informed decisions by providing real-time fare estimates from various cab providers including Uber, Ola, Rapido, and BluSmart.
 
+# App Screenshots:
+<img width="680" height="911" alt="image" src="https://github.com/user-attachments/assets/66169ded-3334-416e-8356-db5dc4e67649" />
+
+## Fare Comparison Page
+<img width="715" height="906" alt="image" src="https://github.com/user-attachments/assets/76cc135d-595a-4c36-bfac-0bb976e8d620" />
+
+
+
 ## Features ✨
 
 ### Frontend (Flutter)
