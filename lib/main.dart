@@ -8,7 +8,7 @@ void main() {
 }
 
 class FareFinder extends StatelessWidget {
-  const FareFinder({Key? key}) : super(key: key);
+  const FareFinder({super.key});
 
   @override
   Widget build(BuildContext context) {

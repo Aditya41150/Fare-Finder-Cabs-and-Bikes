@@ -1,6 +1,7 @@
 const axios = require('axios');
 
-const BASE_URL = 'http://localhost:3000/api';
+const PORT = process.env.PORT || 3000;
+const BASE_URL = `http://localhost:${PORT}/api`;
 
 async function testAPI() {
   console.log('🧪 Testing Dynamic Fare API...\n');
@@ -58,7 +59,14 @@ async function testAPI() {
     console.log('🎉 All tests passed! Dynamic fare system is working correctly.');
 
   } catch (error) {
-    console.error('❌ Test failed:', error.response?.data || error.message);
+    console.error('❌ Test failed:');
+    if (error.response) {
+      console.error('Status:', error.response.status);
+      console.error('Data:', error.response.data);
+    } else {
+      console.error(error.message);
+    }
+    process.exit(1);
   }
 }
 

@@ -7,6 +7,30 @@ const moment = require('moment');
 // Initialize cache with 30-minute TTL for real-time pricing
 const fareCache = new NodeCache({ stdTTL: 1800 });
 
+// Helpers
+function coordKey(p) {
+  if (!p) return 'nil';
+  if (typeof p === 'string') return p;
+  return `${p.lat ?? 'n'}_${p.lng ?? 'n'}`;
+}
+
+function getCacheKey(service, pickup, destination) {
+  return `${service}_${coordKey(pickup)}_${coordKey(destination)}`;
+}
+
+function parseEstimateToNumber(estimate) {
+  // Some APIs return strings like "$10-12" or "10.00" — extract numbers and pick a sensible value
+  if (estimate == null) return null;
+  if (typeof estimate === 'number') return estimate;
+  const s = String(estimate);
+  const nums = s.match(/[0-9]+(?:\.[0-9]+)?/g);
+  if (!nums || nums.length === 0) return null;
+  // If range like 10-12, take average
+  const parsed = nums.map(n => parseFloat(n));
+  const avg = parsed.reduce((a, b) => a + b, 0) / parsed.length;
+  return Math.round(avg);
+}
+
 class FareService {
   constructor() {
     this.platforms = {
@@ -65,7 +89,7 @@ class FareService {
   // Fetch fare from Uber API
   async fetchUberFare(pickup, destination, distance) {
     try {
-      const cacheKey = `uber_${pickup}_${destination}`;
+      const cacheKey = getCacheKey('uber', pickup, destination);
       const cached = fareCache.get(cacheKey);
       if (cached) return cached;
 
@@ -79,8 +103,10 @@ class FareService {
         },
         timeout: 5000
       });
-
-      const fare = response.data.prices[0]?.estimate || this.calculateFallbackFare('uber', distance);
+      // Parse estimate into a numeric value if possible
+      const rawEstimate = response.data?.prices?.[0]?.estimate;
+      let fare = parseEstimateToNumber(rawEstimate);
+      if (fare == null) fare = this.calculateFallbackFare('uber', distance);
       fareCache.set(cacheKey, fare);
       return fare;
     } catch (error) {
@@ -92,7 +118,7 @@ class FareService {
   // Fetch fare from Ola API
   async fetchOlaFare(pickup, destination, distance) {
     try {
-      const cacheKey = `ola_${pickup}_${destination}`;
+      const cacheKey = getCacheKey('ola', pickup, destination);
       const cached = fareCache.get(cacheKey);
       if (cached) return cached;
 
@@ -106,8 +132,9 @@ class FareService {
         },
         timeout: 5000
       });
-
-      const fare = response.data.fare_breakup?.total || this.calculateFallbackFare('ola', distance);
+      const raw = response.data?.fare_breakup?.total;
+      let fare = parseEstimateToNumber(raw);
+      if (fare == null) fare = this.calculateFallbackFare('ola', distance);
       fareCache.set(cacheKey, fare);
       return fare;
     } catch (error) {
@@ -119,37 +146,45 @@ class FareService {
   // Scrape fare from Rapido website
   async scrapeRapidoFare(pickup, destination, distance) {
     try {
-      const cacheKey = `rapido_${pickup}_${destination}`;
+      const cacheKey = getCacheKey('rapido', pickup, destination);
       const cached = fareCache.get(cacheKey);
       if (cached) return cached;
 
-      const browser = await puppeteer.launch({ 
-        headless: true,
-        args: ['--no-sandbox', '--disable-setuid-sandbox']
-      });
-      
-      const page = await browser.newPage();
-      await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
-      
-      // Navigate to Rapido fare calculator (mock implementation)
-      await page.goto('https://rapido.bike/fare-calculator', { 
-        waitUntil: 'networkidle2',
-        timeout: 10000
-      });
+      // Be defensive: puppeteer scraping relies on selectors that may change.
+      // If Puppeteer is not available or the page layout changes, fall back to calculation.
+      let browser;
+      try {
+        browser = await puppeteer.launch({
+          headless: true,
+          args: ['--no-sandbox', '--disable-setuid-sandbox']
+        });
 
-      // Fill in pickup and destination (this would need actual selectors)
-      await page.type('#pickup', pickup.address || 'Pickup Location');
-      await page.type('#destination', destination.address || 'Destination');
-      await page.click('#calculate-fare');
-      
-      await page.waitForSelector('.fare-amount', { timeout: 5000 });
-      const fareText = await page.$eval('.fare-amount', el => el.textContent);
-      
-      await browser.close();
-      
-      const fare = parseInt(fareText.replace(/[^0-9]/g, '')) || this.calculateFallbackFare('rapido', distance);
-      fareCache.set(cacheKey, fare);
-      return fare;
+        const page = await browser.newPage();
+        await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
+        await page.goto('https://rapido.bike/fare-calculator', {
+          waitUntil: 'networkidle2',
+          timeout: 10000
+        });
+
+        // These selectors are hypothetical — if they don't exist we'll catch and fallback.
+        try {
+          await page.type('#pickup', pickup.address || 'Pickup Location');
+          await page.type('#destination', destination.address || 'Destination');
+          await page.click('#calculate-fare');
+          await page.waitForSelector('.fare-amount', { timeout: 5000 });
+          const fareText = await page.$eval('.fare-amount', el => el.textContent);
+          const fare = parseInt((fareText || '').replace(/[^0-9]/g, '')) || this.calculateFallbackFare('rapido', distance);
+          fareCache.set(cacheKey, fare);
+          return fare;
+        } catch (innerErr) {
+          console.log('Rapido selectors failed, falling back to estimated fare:', innerErr.message);
+          return this.calculateFallbackFare('rapido', distance);
+        }
+      } finally {
+        if (browser) {
+          try { await browser.close(); } catch (e) { /* ignore */ }
+        }
+      }
     } catch (error) {
       console.log(`Rapido scraping failed, using fallback: ${error.message}`);
       return this.calculateFallbackFare('rapido', distance);
@@ -174,7 +209,7 @@ class FareService {
       this.fetchUberFare(pickup, destination, distance),
       this.fetchOlaFare(pickup, destination, distance),
       this.scrapeRapidoFare(pickup, destination, distance),
-      this.calculateFallbackFare('blusmart', distance)
+      Promise.resolve(this.calculateFallbackFare('blusmart', distance))
     ];
 
     try {
@@ -191,7 +226,7 @@ class FareService {
           estimatedFare: fare,
           eta: Math.round(duration / 60) + Math.floor(Math.random() * 5),
           vehicleType: serviceKey === 'rapido' ? 'Bike' : 'Car',
-          distance: distance.toFixed(1),
+          distance: (Number(distance) || 0).toFixed(1),
           duration: Math.round(duration / 60),
           surgeMultiplier: this.getSurgeMultiplier(serviceKey),
           lastUpdated: moment().toISOString(),

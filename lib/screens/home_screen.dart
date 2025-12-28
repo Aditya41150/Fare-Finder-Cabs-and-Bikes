@@ -3,11 +3,13 @@ import 'package:provider/provider.dart';
 import 'dart:math';
 import '../providers/fare_provider.dart';
 import '../services/places_service.dart';
+import '../models/place_prediction.dart';
 import '../widgets/location_autocomplete.dart';
 import 'results_screen.dart';
+import 'package:find_fare/screens/map_preview_screen.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({Key? key}) : super(key: key);
+  const HomeScreen({super.key});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -17,7 +19,7 @@ class _HomeScreenState extends State<HomeScreen> {
   final _pickupController = TextEditingController();
   final _destinationController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
-  
+
   PlacePrediction? _selectedPickupPlace;
   PlacePrediction? _selectedDestinationPlace;
   bool _isCalculatingDistance = false;
@@ -35,15 +37,19 @@ class _HomeScreenState extends State<HomeScreen> {
         _isCalculatingDistance = true;
       });
 
-      double distance = 15.5; // Default fallback distance
-      double duration = 1800; // Default fallback duration (30 minutes)
+      double distance = 15.5;
+      double duration = 1800;
 
-      // Calculate actual distance if both places are selected
+      // FIXED: Removed () to access static method correctly
       if (_selectedPickupPlace != null && _selectedDestinationPlace != null) {
         try {
-          final pickupCoords = await PlacesService.getPlaceCoordinates(_selectedPickupPlace!.placeId);
-          final destCoords = await PlacesService.getPlaceCoordinates(_selectedDestinationPlace!.placeId);
-          
+          final pickupCoords = await PlacesService.getPlaceCoordinates(
+            _selectedPickupPlace!.placeId,
+          );
+          final destCoords = await PlacesService.getPlaceCoordinates(
+            _selectedDestinationPlace!.placeId,
+          );
+
           if (pickupCoords != null && destCoords != null) {
             distance = _calculateDistance(
               pickupCoords['lat']!,
@@ -51,12 +57,10 @@ class _HomeScreenState extends State<HomeScreen> {
               destCoords['lat']!,
               destCoords['lng']!,
             );
-            // Estimate duration based on distance (assuming average speed of 30 km/h in city traffic)
-            duration = (distance / 30) * 3600; // Convert hours to seconds
+            duration = (distance / 30) * 3600;
           }
         } catch (e) {
-          print('Error calculating distance: $e');
-          // Use fallback values
+          debugPrint('Error calculating distance: $e');
         }
       }
 
@@ -64,44 +68,64 @@ class _HomeScreenState extends State<HomeScreen> {
         _isCalculatingDistance = false;
       });
 
-      // Prepare pickup and destination objects
-      Map<String, dynamic> pickupData = {
-        'address': _pickupController.text,
-        'lat': 12.9716, // Default to Bangalore coordinates
-        'lng': 77.5946,
-      };
-      
-      Map<String, dynamic> destinationData = {
-        'address': _destinationController.text,
-        'lat': 12.2958, // Default to Mysuru coordinates  
-        'lng': 76.6394,
-      };
-      
-      // Use actual coordinates if available
+      // Prepare final data maps for coordinates
+      Map<String, dynamic>? pickupData;
+      Map<String, dynamic>? destinationData;
+
+      // Fetch precise coordinates for search and map
       if (_selectedPickupPlace != null) {
         try {
-          final pickupCoords = await PlacesService.getPlaceCoordinates(_selectedPickupPlace!.placeId);
-          if (pickupCoords != null) {
-            pickupData['lat'] = pickupCoords['lat'];
-            pickupData['lng'] = pickupCoords['lng'];
+          final coords = await PlacesService.getPlaceCoordinates(
+            _selectedPickupPlace!.placeId,
+          );
+          if (coords != null) {
+            pickupData = {
+              'address': _pickupController.text,
+              'lat': coords['lat'],
+              'lng': coords['lng'],
+            };
           }
         } catch (e) {
-          print('Error getting pickup coordinates: $e');
-        }
-      }
-      
-      if (_selectedDestinationPlace != null) {
-        try {
-          final destCoords = await PlacesService.getPlaceCoordinates(_selectedDestinationPlace!.placeId);
-          if (destCoords != null) {
-            destinationData['lat'] = destCoords['lat'];
-            destinationData['lng'] = destCoords['lng'];
-          }
-        } catch (e) {
-          print('Error getting destination coordinates: $e');
+          debugPrint('Error fetching pickup coordinates: $e');
         }
       }
 
+      if (_selectedDestinationPlace != null) {
+        try {
+          final coords = await PlacesService.getPlaceCoordinates(
+            _selectedDestinationPlace!.placeId,
+          );
+          if (coords != null) {
+            destinationData = {
+              'address': _destinationController.text,
+              'lat': coords['lat'],
+              'lng': coords['lng'],
+            };
+          }
+        } catch (e) {
+          debugPrint('Error fetching destination coordinates: $e');
+        }
+      }
+
+      // Validate that we have both coordinates
+      if (pickupData == null || destinationData == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Unable to get location coordinates. Please try again.'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        setState(() {
+          _isCalculatingDistance = false;
+        });
+        return;
+      }
+
+      if (!mounted) return;
+
+      // Fetch the cab estimates from your Node.js backend
       await Provider.of<FareProvider>(context, listen: false).getFareEstimates(
         pickup: pickupData,
         destination: destinationData,
@@ -110,15 +134,27 @@ class _HomeScreenState extends State<HomeScreen> {
       );
 
       if (mounted) {
-        Navigator.push(
+        // First show the route on the map
+        await Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => ResultsScreen(
-              pickup: _pickupController.text,
-              destination: _destinationController.text,
-            ),
+            builder: (context) =>
+                MapScreen(pickup: pickupData, destination: destinationData),
           ),
         );
+
+        // Then show results screen after map is dismissed
+        if (mounted) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => ResultsScreen(
+                pickup: _pickupController.text,
+                destination: _destinationController.text,
+              ),
+            ),
+          );
+        }
       }
     }
   }
@@ -161,10 +197,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   const SizedBox(height: 10),
                   const Text(
                     'Find the best deals from multiple cab services',
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: Colors.white70,
-                    ),
+                    style: TextStyle(fontSize: 16, color: Colors.white70),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 50),
@@ -184,15 +217,12 @@ class _HomeScreenState extends State<HomeScreen> {
                             prefixIcon: Icons.my_location,
                             iconColor: Colors.green,
                             validator: (value) {
-                              if (value == null || value.isEmpty) {
-                                return 'Please enter pickup location';
-                              }
+                              if (value == null || value.isEmpty)
+                                return 'Required';
                               return null;
                             },
                             onPlaceSelected: (place) {
-                              setState(() {
-                                _selectedPickupPlace = place;
-                              });
+                              setState(() => _selectedPickupPlace = place);
                             },
                           ),
                           const SizedBox(height: 20),
@@ -203,15 +233,12 @@ class _HomeScreenState extends State<HomeScreen> {
                             prefixIcon: Icons.place,
                             iconColor: Colors.red,
                             validator: (value) {
-                              if (value == null || value.isEmpty) {
-                                return 'Please enter destination';
-                              }
+                              if (value == null || value.isEmpty)
+                                return 'Required';
                               return null;
                             },
                             onPlaceSelected: (place) {
-                              setState(() {
-                                _selectedDestinationPlace = place;
-                              });
+                              setState(() => _selectedDestinationPlace = place);
                             },
                           ),
                           const SizedBox(height: 30),
@@ -219,43 +246,23 @@ class _HomeScreenState extends State<HomeScreen> {
                             width: double.infinity,
                             height: 50,
                             child: ElevatedButton(
-                              onPressed: _isCalculatingDistance ? null : _searchFares,
+                              onPressed: _isCalculatingDistance
+                                  ? null
+                                  : _searchFares,
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.blue[600],
                                 foregroundColor: Colors.white,
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(25),
                                 ),
-                                elevation: 3,
                               ),
                               child: _isCalculatingDistance
-                                  ? Row(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        SizedBox(
-                                          width: 20,
-                                          height: 20,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2,
-                                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                                          ),
-                                        ),
-                                        const SizedBox(width: 10),
-                                        const Text(
-                                          'Calculating...',
-                                          style: TextStyle(
-                                            fontSize: 18,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                      ],
+                                  ? const CircularProgressIndicator(
+                                      color: Colors.white,
                                     )
                                   : const Text(
                                       'Search Fares',
-                                      style: TextStyle(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.bold,
-                                      ),
+                                      style: TextStyle(fontSize: 18),
                                     ),
                             ),
                           ),
@@ -268,7 +275,10 @@ class _HomeScreenState extends State<HomeScreen> {
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
                       _buildFeatureCard(Icons.compare, 'Compare\nPrices'),
-                      _buildFeatureCard(Icons.access_time, 'Real-time\nUpdates'),
+                      _buildFeatureCard(
+                        Icons.access_time,
+                        'Real-time\nUpdates',
+                      ),
                       _buildFeatureCard(Icons.attach_money, 'Save\nMoney'),
                     ],
                   ),
@@ -286,15 +296,8 @@ class _HomeScreenState extends State<HomeScreen> {
     return Container(
       padding: const EdgeInsets.all(15),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.9),
+        color: Colors.white.withValues(alpha: 0.9),
         borderRadius: BorderRadius.circular(15),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 5,
-            offset: const Offset(0, 2),
-          ),
-        ],
       ),
       child: Column(
         children: [
@@ -302,10 +305,7 @@ class _HomeScreenState extends State<HomeScreen> {
           const SizedBox(height: 8),
           Text(
             text,
-            style: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-            ),
+            style: const TextStyle(fontSize: 12),
             textAlign: TextAlign.center,
           ),
         ],
@@ -313,26 +313,21 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // Calculate distance between two coordinates using Haversine formula
-  double _calculateDistance(double lat1, double lon1, double lat2, double lon2) {
-    const double earthRadius = 6371; // Earth's radius in kilometers
-    
-    double dLat = _degreesToRadians(lat2 - lat1);
-    double dLon = _degreesToRadians(lon2 - lon1);
-    
-    double a = sin(dLat / 2) * sin(dLat / 2) +
-        cos(_degreesToRadians(lat1)) *
-        cos(_degreesToRadians(lat2)) *
-        sin(dLon / 2) *
-        sin(dLon / 2);
-    
-    double c = 2 * atan2(sqrt(a), sqrt(1 - a));
-    double distance = earthRadius * c;
-    
-    return distance;
-  }
-  
-  double _degreesToRadians(double degrees) {
-    return degrees * (pi / 180);
+  double _calculateDistance(
+    double lat1,
+    double lon1,
+    double lat2,
+    double lon2,
+  ) {
+    const double earthRadius = 6371;
+    double dLat = (lat2 - lat1) * (pi / 180);
+    double dLon = (lon2 - lon1) * (pi / 180);
+    double a =
+        sin(dLat / 2) * sin(dLat / 2) +
+        cos(lat1 * (pi / 180)) *
+            cos(lat2 * (pi / 180)) *
+            sin(dLon / 2) *
+            sin(dLon / 2);
+    return earthRadius * 2 * atan2(sqrt(a), sqrt(1 - a));
   }
 }

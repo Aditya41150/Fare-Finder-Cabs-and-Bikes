@@ -10,10 +10,10 @@ class ResultsScreen extends StatefulWidget {
   final String destination;
 
   const ResultsScreen({
-    Key? key,
+    super.key,
     required this.pickup,
     required this.destination,
-  }) : super(key: key);
+  });
 
   @override
   State<ResultsScreen> createState() => _ResultsScreenState();

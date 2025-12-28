@@ -43,7 +43,7 @@ dependencies:
   geocoding: ^4.0.0
   
   # Maps
-  google_maps_flutter: ^2.5.0
+  google_maps_flutter: ^2.14.0
   
   # State management
   provider: ^6.1.1

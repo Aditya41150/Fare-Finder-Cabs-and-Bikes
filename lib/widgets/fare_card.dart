@@ -7,11 +7,11 @@ class FareCard extends StatelessWidget {
   final VoidCallback onBook;
 
   const FareCard({
-    Key? key,
+    super.key,
     required this.estimate,
     required this.isLowest,
     required this.onBook,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -21,20 +21,20 @@ class FareCard extends StatelessWidget {
         elevation: isLowest ? 8 : 4,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
-          side: isLowest 
-            ? BorderSide(color: Colors.green, width: 2)
-            : BorderSide.none,
+          side: isLowest
+              ? BorderSide(color: Colors.green, width: 2)
+              : BorderSide.none,
         ),
         child: Container(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
             gradient: isLowest
-              ? LinearGradient(
-                  colors: [Colors.green[50]!, Colors.white],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                )
-              : null,
+                ? LinearGradient(
+                    colors: [Colors.green[50]!, Colors.white],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  )
+                : null,
           ),
           child: Padding(
             padding: const EdgeInsets.all(16),
@@ -42,7 +42,10 @@ class FareCard extends StatelessWidget {
               children: [
                 if (isLowest)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.green,
                       borderRadius: BorderRadius.circular(12),
@@ -62,7 +65,9 @@ class FareCard extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: _getServiceColor(estimate.id).withOpacity(0.1),
+                        color: _getServiceColor(
+                          estimate.id,
+                        ).withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Icon(
@@ -140,11 +145,7 @@ class FareCard extends StatelessWidget {
                     Expanded(
                       child: Row(
                         children: [
-                          Icon(
-                            Icons.route,
-                            size: 16,
-                            color: Colors.grey[600],
-                          ),
+                          Icon(Icons.route, size: 16, color: Colors.grey[600]),
                           const SizedBox(width: 4),
                           Text(
                             '${estimate.duration} min',
@@ -162,9 +163,9 @@ class FareCard extends StatelessWidget {
                       child: ElevatedButton(
                         onPressed: onBook,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: isLowest 
-                            ? Colors.green
-                            : Colors.blue[600],
+                          backgroundColor: isLowest
+                              ? Colors.green
+                              : Colors.blue[600],
                           foregroundColor: Colors.white,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(18),

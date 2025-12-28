@@ -3,8 +3,9 @@ class FareEstimate {
   final String name;
   final int estimatedFare;
   final int eta;
+  final double surgeMultiplier;
   final String vehicleType;
-  final String distance;
+  final double distance;
   final int duration;
 
   FareEstimate({
@@ -12,6 +13,7 @@ class FareEstimate {
     required this.name,
     required this.estimatedFare,
     required this.eta,
+    required this.surgeMultiplier,
     required this.vehicleType,
     required this.distance,
     required this.duration,
@@ -19,25 +21,14 @@ class FareEstimate {
 
   factory FareEstimate.fromJson(Map<String, dynamic> json) {
     return FareEstimate(
-      id: json['id'] ?? '',
+      id: json['id'] ?? json['name']?.toString().toLowerCase() ?? '',
       name: json['name'] ?? '',
-      estimatedFare: json['estimatedFare'] ?? 0,
-      eta: json['eta'] ?? 0,
-      vehicleType: json['vehicleType'] ?? '',
-      distance: json['distance'] ?? '',
+      estimatedFare: json['estimatedFare'] ?? json['price'] ?? 0,
+      eta: json['eta'] ?? 5,
+      surgeMultiplier: (json['surgeMultiplier'] ?? 1.0).toDouble(),
+      vehicleType: json['vehicleType'] ?? json['name'] ?? 'Car',
+      distance: (json['distance'] ?? 0).toDouble(),
       duration: json['duration'] ?? 0,
     );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'name': name,
-      'estimatedFare': estimatedFare,
-      'eta': eta,
-      'vehicleType': vehicleType,
-      'distance': distance,
-      'duration': duration,
-    };
   }
 }

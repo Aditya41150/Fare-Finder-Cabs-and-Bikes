@@ -2,15 +2,17 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/fare_estimate.dart';
 import '../models/booking.dart';
-import '../config/app_config.dart';
+import '../config/network_config.dart';
 
 class ApiService {
-  static const String baseUrl = 'http://localhost:3000/api';
+  // Use dynamic URL based on platform
+  static String get baseUrl => NetworkConfig.getBackendUrl();
 
   static Future<List<FareEstimate>> getFareEstimates({
     required Map<String, dynamic> pickup,
     required Map<String, dynamic> destination,
     required double distance,
+
     required double duration,
   }) async {
     try {
