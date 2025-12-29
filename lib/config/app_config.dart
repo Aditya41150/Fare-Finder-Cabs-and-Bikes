@@ -1,6 +1,8 @@
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+
 class AppConfig {
   // Google Places API Configuration
-  static const String googlePlacesApiKey = 'AIzaSyDvbIWCofdYqBl08_E9W-ncZC3kvrd5UcY';
+  static String get googlePlacesApiKey => dotenv.env['GOOGLE_PLACES_API_KEY'] ?? '';
   
   // Set this to false when you have a valid Google Places API key
   static const bool useMockPlacesData = false;
