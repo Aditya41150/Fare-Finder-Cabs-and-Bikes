@@ -16,35 +16,17 @@ class NetworkConfig {
   
   static String _getMobileBackendUrl() {
     // This method is only called on non-web platforms
-    // For Android Emulator, use 10.0.2.2
-    // For iOS Simulator and others, use localhost
-    // You can manually override this by setting a custom URL
+    // Updated for physical device (Moto G84 5G)
+    // Using computer's WiFi IP address: 192.168.1.33
     
-    // Default to Android Emulator URL
-    // Users can change this in the code if needed
-    return 'http://10.0.2.2:3000/api';
+    // For physical device - using your computer's IP
+    return physicalDevice;
   }
   
   // Alternative URLs for different scenarios
   static const String web = 'http://localhost:3000/api';
   static const String androidEmulator = 'http://10.0.2.2:3000/api';
   static const String iosSimulator = 'http://localhost:3000/api';
-  static const String physicalDevice = 'http://192.168.1.39:3000/api'; // Update with your IP
-  
-  // Instructions to get your local IP
-  static const String ipInstructions = '''
-  To find your local IP address:
-  
-  Windows:
-  1. Open Command Prompt
-  2. Type: ipconfig
-  3. Look for "IPv4 Address" under your active network adapter
-  
-  Mac/Linux:
-  1. Open Terminal
-  2. Type: ifconfig
-  3. Look for "inet" address (usually starts with 192.168.x.x)
-  
-  Then update physicalDevice constant with your IP address.
-  ''';
+  static const String physicalDevice = 'http://192.168.1.33:3000/api'; // Your WiFi IP
+
 }

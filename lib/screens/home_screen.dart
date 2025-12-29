@@ -6,7 +6,7 @@ import '../services/places_service.dart';
 import '../models/place_prediction.dart';
 import '../widgets/location_autocomplete.dart';
 import 'results_screen.dart';
-import 'package:find_fare/screens/map_preview_screen.dart';
+import 'map_preview_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -15,7 +15,7 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateMixin {
   final _pickupController = TextEditingController();
   final _destinationController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
@@ -23,11 +23,36 @@ class _HomeScreenState extends State<HomeScreen> {
   PlacePrediction? _selectedPickupPlace;
   PlacePrediction? _selectedDestinationPlace;
   bool _isCalculatingDistance = false;
+  
+  late AnimationController _animationController;
+  late Animation<double> _fadeAnimation;
+  late Animation<Offset> _slideAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 800),
+      vsync: this,
+    );
+    
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeOut),
+    );
+    
+    _slideAnimation = Tween<Offset>(
+      begin: const Offset(0, 0.3),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(parent: _animationController, curve: Curves.easeOut));
+    
+    _animationController.forward();
+  }
 
   @override
   void dispose() {
     _pickupController.dispose();
     _destinationController.dispose();
+    _animationController.dispose();
     super.dispose();
   }
 
@@ -40,7 +65,6 @@ class _HomeScreenState extends State<HomeScreen> {
       double distance = 15.5;
       double duration = 1800;
 
-      // FIXED: Removed () to access static method correctly
       if (_selectedPickupPlace != null && _selectedDestinationPlace != null) {
         try {
           final pickupCoords = await PlacesService.getPlaceCoordinates(
@@ -111,9 +135,11 @@ class _HomeScreenState extends State<HomeScreen> {
       if (pickupData == null || destinationData == null) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Unable to get location coordinates. Please try again.'),
-              backgroundColor: Colors.red,
+            SnackBar(
+              content: const Text('Unable to get location coordinates. Please try again.'),
+              backgroundColor: Colors.red.shade400,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             ),
           );
         }
@@ -139,7 +165,7 @@ class _HomeScreenState extends State<HomeScreen> {
           context,
           MaterialPageRoute(
             builder: (context) =>
-                MapScreen(pickup: pickupData, destination: destinationData),
+                MapScreen(pickup: pickupData!, destination: destinationData!),
           ),
         );
 
@@ -162,128 +188,218 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Find Fare'),
-        backgroundColor: Colors.blue[600],
-        foregroundColor: Colors.white,
-        elevation: 0,
-      ),
       body: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Colors.blue[600]!, Colors.blue[50]!],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              const Color(0xFF6366F1),
+              const Color(0xFF8B5CF6),
+              const Color(0xFFA855F7),
+            ],
           ),
         ),
         child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(20.0),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const SizedBox(height: 30),
-                  const Text(
-                    'Compare Cab Fares',
-                    style: TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 10),
-                  const Text(
-                    'Find the best deals from multiple cab services',
-                    style: TextStyle(fontSize: 16, color: Colors.white70),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 50),
-                  Card(
-                    elevation: 8,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(15),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(20.0),
-                      child: Column(
-                        children: [
-                          LocationAutocomplete(
-                            controller: _pickupController,
-                            labelText: 'Pickup Location',
-                            hintText: 'Search for pickup location',
-                            prefixIcon: Icons.my_location,
-                            iconColor: Colors.green,
-                            validator: (value) {
-                              if (value == null || value.isEmpty)
-                                return 'Required';
-                              return null;
-                            },
-                            onPlaceSelected: (place) {
-                              setState(() => _selectedPickupPlace = place);
-                            },
+          child: SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            child: Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: FadeTransition(
+                opacity: _fadeAnimation,
+                child: SlideTransition(
+                  position: _slideAnimation,
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const SizedBox(height: 40),
+                        // App Title
+                        const Text(
+                          '🚗 Fare Finder',
+                          style: TextStyle(
+                            fontSize: 36,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                            letterSpacing: -1,
                           ),
-                          const SizedBox(height: 20),
-                          LocationAutocomplete(
-                            controller: _destinationController,
-                            labelText: 'Destination',
-                            hintText: 'Search for destination',
-                            prefixIcon: Icons.place,
-                            iconColor: Colors.red,
-                            validator: (value) {
-                              if (value == null || value.isEmpty)
-                                return 'Required';
-                              return null;
-                            },
-                            onPlaceSelected: (place) {
-                              setState(() => _selectedDestinationPlace = place);
-                            },
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          'Compare cab fares instantly',
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.white.withOpacity(0.9),
+                            fontWeight: FontWeight.w500,
                           ),
-                          const SizedBox(height: 30),
-                          SizedBox(
-                            width: double.infinity,
-                            height: 50,
-                            child: ElevatedButton(
-                              onPressed: _isCalculatingDistance
-                                  ? null
-                                  : _searchFares,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.blue[600],
-                                foregroundColor: Colors.white,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(25),
-                                ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 50),
+                        
+                        // Main Card
+                        Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(24),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.1),
+                                blurRadius: 30,
+                                offset: const Offset(0, 10),
                               ),
-                              child: _isCalculatingDistance
-                                  ? const CircularProgressIndicator(
-                                      color: Colors.white,
-                                    )
-                                  : const Text(
-                                      'Search Fares',
-                                      style: TextStyle(fontSize: 18),
+                            ],
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.all(24.0),
+                            child: Column(
+                              children: [
+                                // Pickup Location
+                                LocationAutocomplete(
+                                  controller: _pickupController,
+                                  labelText: 'Pickup Location',
+                                  hintText: 'Where are you?',
+                                  prefixIcon: Icons.my_location_rounded,
+                                  iconColor: const Color(0xFF10B981),
+                                  validator: (value) {
+                                    if (value == null || value.isEmpty) {
+                                      return 'Please enter pickup location';
+                                    }
+                                    return null;
+                                  },
+                                  onPlaceSelected: (place) {
+                                    setState(() => _selectedPickupPlace = place);
+                                  },
+                                ),
+                                
+                                const SizedBox(height: 20),
+                                
+                                // Swap Button
+                                Center(
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFF8FAFC),
+                                      borderRadius: BorderRadius.circular(12),
                                     ),
+                                    child: IconButton(
+                                      icon: const Icon(Icons.swap_vert_rounded),
+                                      color: const Color(0xFF6366F1),
+                                      onPressed: () {
+                                        final temp = _pickupController.text;
+                                        _pickupController.text = _destinationController.text;
+                                        _destinationController.text = temp;
+                                        
+                                        final tempPlace = _selectedPickupPlace;
+                                        _selectedPickupPlace = _selectedDestinationPlace;
+                                        _selectedDestinationPlace = tempPlace;
+                                      },
+                                    ),
+                                  ),
+                                ),
+                                
+                                const SizedBox(height: 20),
+                                
+                                // Destination Location
+                                LocationAutocomplete(
+                                  controller: _destinationController,
+                                  labelText: 'Destination',
+                                  hintText: 'Where to?',
+                                  prefixIcon: Icons.location_on_rounded,
+                                  iconColor: const Color(0xFFEF4444),
+                                  validator: (value) {
+                                    if (value == null || value.isEmpty) {
+                                      return 'Please enter destination';
+                                    }
+                                    return null;
+                                  },
+                                  onPlaceSelected: (place) {
+                                    setState(() => _selectedDestinationPlace = place);
+                                  },
+                                ),
+                                
+                                const SizedBox(height: 32),
+                                
+                                // Search Button
+                                SizedBox(
+                                  width: double.infinity,
+                                  height: 56,
+                                  child: ElevatedButton(
+                                    onPressed: _isCalculatingDistance ? null : _searchFares,
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color(0xFF6366F1),
+                                      foregroundColor: Colors.white,
+                                      disabledBackgroundColor: Colors.grey.shade300,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(16),
+                                      ),
+                                      elevation: 0,
+                                    ),
+                                    child: _isCalculatingDistance
+                                        ? const SizedBox(
+                                            height: 24,
+                                            width: 24,
+                                            child: CircularProgressIndicator(
+                                              color: Colors.white,
+                                              strokeWidth: 2.5,
+                                            ),
+                                          )
+                                        : const Row(
+                                            mainAxisAlignment: MainAxisAlignment.center,
+                                            children: [
+                                              Text(
+                                                'Compare Fares',
+                                                style: TextStyle(
+                                                  fontSize: 18,
+                                                  fontWeight: FontWeight.w600,
+                                                  letterSpacing: 0.5,
+                                                ),
+                                              ),
+                                              SizedBox(width: 8),
+                                              Icon(Icons.arrow_forward_rounded, size: 20),
+                                            ],
+                                          ),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                        ],
-                      ),
+                        ),
+                        
+                        const SizedBox(height: 40),
+                        
+                        // Feature Cards
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _buildFeatureCard(
+                                Icons.compare_arrows_rounded,
+                                'Compare\nPrices',
+                                const Color(0xFF6366F1),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: _buildFeatureCard(
+                                Icons.bolt_rounded,
+                                'Instant\nResults',
+                                const Color(0xFF8B5CF6),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: _buildFeatureCard(
+                                Icons.savings_rounded,
+                                'Save\nMoney',
+                                const Color(0xFFA855F7),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
                   ),
-                  const Spacer(),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      _buildFeatureCard(Icons.compare, 'Compare\nPrices'),
-                      _buildFeatureCard(
-                        Icons.access_time,
-                        'Real-time\nUpdates',
-                      ),
-                      _buildFeatureCard(Icons.attach_money, 'Save\nMoney'),
-                    ],
-                  ),
-                  const SizedBox(height: 20),
-                ],
+                ),
               ),
             ),
           ),
@@ -292,20 +408,29 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildFeatureCard(IconData icon, String text) {
+  Widget _buildFeatureCard(IconData icon, String text, Color color) {
     return Container(
-      padding: const EdgeInsets.all(15),
+      padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 12),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.9),
-        borderRadius: BorderRadius.circular(15),
+        color: Colors.white.withOpacity(0.2),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: Colors.white.withOpacity(0.3),
+          width: 1,
+        ),
       ),
       child: Column(
         children: [
-          Icon(icon, size: 30, color: Colors.blue[600]),
+          Icon(icon, size: 32, color: Colors.white),
           const SizedBox(height: 8),
           Text(
             text,
-            style: const TextStyle(fontSize: 12),
+            style: const TextStyle(
+              fontSize: 13,
+              color: Colors.white,
+              fontWeight: FontWeight.w600,
+              height: 1.2,
+            ),
             textAlign: TextAlign.center,
           ),
         ],

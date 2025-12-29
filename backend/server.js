@@ -145,8 +145,18 @@ app.post('/api/fare-estimate', async (req, res) => {
       {
         id: 'uber',
         name: 'UberGo',
-        estimatedFare: Math.round((50 + distanceNum * 12) * surge),
-        eta: 4,
+        estimatedFare: Math.round((40 + distanceNum * 10) * surge),
+        eta: 5,
+        surgeMultiplier: surge,
+        vehicleType: 'Hatchback',
+        distance: distanceNum,
+        duration: Math.round(durationNum / 60)
+      },
+      {
+        id: 'uber-premier',
+        name: 'Uber Premier',
+        estimatedFare: Math.round((60 + distanceNum * 15) * surge),
+        eta: 6,
         surgeMultiplier: surge,
         vehicleType: 'Sedan',
         distance: distanceNum,
@@ -155,17 +165,27 @@ app.post('/api/fare-estimate', async (req, res) => {
       {
         id: 'ola',
         name: 'Ola Mini',
-        estimatedFare: Math.round((45 + distanceNum * 11) * surge),
-        eta: 6,
+        estimatedFare: Math.round((35 + distanceNum * 9) * surge),
+        eta: 5,
         surgeMultiplier: surge,
         vehicleType: 'Hatchback',
         distance: distanceNum,
         duration: Math.round(durationNum / 60)
       },
       {
+        id: 'ola-prime',
+        name: 'Ola Prime',
+        estimatedFare: Math.round((55 + distanceNum * 14) * surge),
+        eta: 6,
+        surgeMultiplier: surge,
+        vehicleType: 'Sedan',
+        distance: distanceNum,
+        duration: Math.round(durationNum / 60)
+      },
+      {
         id: 'rapido',
-        name: 'Rapido',
-        estimatedFare: Math.round((20 + distanceNum * 6) * surge),
+        name: 'Rapido Bike',
+        estimatedFare: Math.round((15 + distanceNum * 5) * surge),
         eta: 3,
         surgeMultiplier: surge,
         vehicleType: 'Bike',
@@ -173,12 +193,12 @@ app.post('/api/fare-estimate', async (req, res) => {
         duration: Math.round(durationNum / 60)
       },
       {
-        id: 'blusmart',
-        name: 'BluSmart',
-        estimatedFare: Math.round((60 + distanceNum * 13) * surge),
-        eta: 5,
+        id: 'rapido-auto',
+        name: 'Rapido Auto',
+        estimatedFare: Math.round((25 + distanceNum * 7) * surge),
+        eta: 4,
         surgeMultiplier: surge,
-        vehicleType: 'Electric Sedan',
+        vehicleType: 'Auto Rickshaw',
         distance: distanceNum,
         duration: Math.round(durationNum / 60)
       }

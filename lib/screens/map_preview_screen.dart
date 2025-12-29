@@ -56,10 +56,22 @@ class _MapScreenState extends State<MapScreen> {
     );
 
     return Scaffold(
+      backgroundColor: const Color(0xFF5B47ED),
       appBar: AppBar(
-        title: const Text('Route Preview'),
-        backgroundColor: Colors.blue[600],
+        title: const Text(
+          'Route Preview',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 20,
+          ),
+        ),
+        backgroundColor: const Color(0xFF5B47ED),
         foregroundColor: Colors.white,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_rounded),
+          onPressed: () => Navigator.pop(context),
+        ),
       ),
       body: Stack(
         children: [
@@ -101,49 +113,75 @@ class _MapScreenState extends State<MapScreen> {
             top: 16,
             left: 16,
             right: 16,
-            child: Card(
-              elevation: 8,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 20,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
               ),
               child: Padding(
-                padding: const EdgeInsets.all(16.0),
+                padding: const EdgeInsets.all(20.0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Row(
                       children: [
-                        Icon(Icons.route, color: Colors.blue[600], size: 20),
-                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF5B47ED).withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Icon(
+                            Icons.route_rounded,
+                            color: Color(0xFF5B47ED),
+                            size: 24,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
                         const Text(
                           'Route Information',
                           style: TextStyle(
-                            fontSize: 16,
+                            fontSize: 18,
                             fontWeight: FontWeight.bold,
+                            color: Color(0xFF1E293B),
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 16),
                     Row(
                       children: [
                         Expanded(
-                          child: _buildInfoItem(
-                            Icons.straighten,
+                          child: _buildModernInfoItem(
+                            Icons.straighten_rounded,
                             'Distance',
                             distance != null
                                 ? '${distance!.toStringAsFixed(1)} km'
                                 : 'Calculating...',
+                            const Color(0xFF10B981),
                           ),
                         ),
+                        Container(
+                          width: 1,
+                          height: 40,
+                          color: Colors.grey[200],
+                        ),
                         Expanded(
-                          child: _buildInfoItem(
-                            Icons.access_time,
+                          child: _buildModernInfoItem(
+                            Icons.access_time_rounded,
                             'Duration',
                             duration != null
                                 ? '$duration min'
                                 : 'Calculating...',
+                            const Color(0xFF5B47ED),
                           ),
                         ),
                       ],
@@ -159,33 +197,45 @@ class _MapScreenState extends State<MapScreen> {
             bottom: 24,
             left: 16,
             right: 16,
-            child: ElevatedButton(
-              onPressed: () {
-                // Close map screen and return to show results
-                Navigator.pop(context);
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blue[600],
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                elevation: 8,
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: const [
-                  Text(
-                    'Continue to Fare Comparison',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.2),
+                    blurRadius: 20,
+                    offset: const Offset(0, 8),
                   ),
-                  SizedBox(width: 8),
-                  Icon(Icons.arrow_forward, size: 24),
                 ],
+              ),
+              child: ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF5B47ED),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 18),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  elevation: 0,
+                ),
+                child: const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      'Continue to Fare Comparison',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                    SizedBox(width: 8),
+                    Icon(Icons.arrow_forward_rounded, size: 24),
+                  ],
+                ),
               ),
             ),
           ),
@@ -194,31 +244,32 @@ class _MapScreenState extends State<MapScreen> {
     );
   }
 
-  Widget _buildInfoItem(IconData icon, String label, String value) {
-    return Row(
-      children: [
-        Icon(icon, size: 16, color: Colors.grey[600]),
-        const SizedBox(width: 4),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.grey[600],
-              ),
+  Widget _buildModernInfoItem(IconData icon, String label, String value, Color color) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8.0),
+      child: Column(
+        children: [
+          Icon(icon, size: 28, color: color),
+          const SizedBox(height: 8),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.grey[600],
+              fontWeight: FontWeight.w500,
             ),
-            Text(
-              value,
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-              ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF1E293B),
             ),
-          ],
-        ),
-      ],
+          ),
+        ],
+      ),
     );
   }
 
