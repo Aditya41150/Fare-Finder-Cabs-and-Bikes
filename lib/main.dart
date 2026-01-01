@@ -6,8 +6,16 @@ import 'screens/home_screen_modern.dart';
 import 'screens/map_preview_screen.dart';
 
 Future<void> main() async {
-  // Load environment variables
-  await dotenv.load(fileName: ".env");
+  // Ensure Flutter binding is initialized
+  WidgetsFlutterBinding.ensureInitialized();
+  
+  // Load environment variables (optional - won't crash if file doesn't exist)
+  try {
+    await dotenv.load(fileName: ".env");
+  } catch (e) {
+    print('Warning: .env file not found. Using default configuration.');
+    print('Error: $e');
+  }
   
   runApp(const FareFinder());
 }

@@ -2,11 +2,11 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/fare_estimate.dart';
 import '../models/booking.dart';
-import '../config/network_config.dart';
+import '../config/app_config.dart';
 
 class ApiService {
-  // Use dynamic URL based on platform
-  static String get baseUrl => NetworkConfig.getBackendUrl();
+  // Use backend URL from .env file (supports both local and production)
+  static String get baseUrl => AppConfig.backendBaseUrl;
 
   static Future<List<FareEstimate>> getFareEstimates({
     required Map<String, dynamic> pickup,

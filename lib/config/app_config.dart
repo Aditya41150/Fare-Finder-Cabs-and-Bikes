@@ -9,7 +9,10 @@ class AppConfig {
   
   // API Base URLs
   static const String googlePlacesBaseUrl = 'https://maps.googleapis.com/maps/api/place';
-  static const String backendBaseUrl = 'http://192.168.1.39:3000/api';
+  
+  // Backend URL - reads from .env file for production, falls back to localhost
+  static String get backendBaseUrl => 
+    dotenv.env['BACKEND_URL'] ?? 'http://localhost:3000/api';
   
   // Location restrictions (ISO 3166-1 Alpha-2 country code)
   static const String countryRestriction = 'in'; // India
