@@ -8,7 +8,7 @@ const PORT = process.env.PORT || 3000;
 const GOOGLE_API_KEY = process.env.GOOGLE_MAPS_API_KEY;
 
 // Toggle this to use mock data (true) or real Google API (false)
-const USE_MOCK_DATA = false; // Set to true to use mock data without Google API
+const USE_MOCK_DATA = true; // Set to true to use mock data without Google API
 
 // Mock location data for testing without Google API
 const MOCK_LOCATIONS = [
