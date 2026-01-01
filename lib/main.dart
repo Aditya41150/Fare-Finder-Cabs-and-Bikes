@@ -9,12 +9,21 @@ Future<void> main() async {
   // Ensure Flutter binding is initialized
   WidgetsFlutterBinding.ensureInitialized();
   
-  // Load environment variables (optional - won't crash if file doesn't exist)
+  // Load environment variables with fallback
   try {
     await dotenv.load(fileName: ".env");
+    print('✅ .env file loaded successfully');
+    print('📡 BACKEND_URL: ${dotenv.env['BACKEND_URL'] ?? 'not set'}');
   } catch (e) {
-    print('Warning: .env file not found. Using default configuration.');
+    print('⚠️ Warning: .env file not found. Using default configuration.');
     print('Error: $e');
+    
+    // Initialize dotenv with default values
+    dotenv.testLoad(fileInput: '''
+GOOGLE_PLACES_API_KEY=
+BACKEND_URL=https://fare-finder-cabs-and-bikes-backend.onrender.com/api
+''');
+    print('✅ Using default backend URL: ${dotenv.env['BACKEND_URL']}');
   }
   
   runApp(const FareFinder());

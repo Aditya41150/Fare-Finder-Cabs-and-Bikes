@@ -36,18 +36,30 @@ class PlacesService {
     if (input.isEmpty) return [];
 
     try {
-      final response = await http.get(
-        Uri.parse('$baseUrl/places-autocomplete?input=$input'),
-      );
+      print('🔍 Fetching autocomplete for: $input');
+      print('📡 Backend URL from AppConfig: $baseUrl');
+      
+      final url = '$baseUrl/places-autocomplete?input=$input';
+      print('🌐 Full URL: $url');
+      
+      final response = await http.get(Uri.parse(url));
 
+      print('📊 Response status: ${response.statusCode}');
+      
       if (response.statusCode == 200) {
+        print('📦 Response body: ${response.body}');
         final Map<String, dynamic> data = jsonDecode(response.body);
         // Handle the wrapped response format from backend
         final List<dynamic> predictions = data['predictions'] ?? [];
+        print('✅ Got ${predictions.length} predictions');
         return predictions.map((json) => PlacePrediction.fromJson(json)).toList();
+      } else {
+        print('❌ Error: Status code ${response.statusCode}');
+        print('Response: ${response.body}');
       }
     } catch (e) {
-      print('Autocomplete Error: $e');
+      print('❌ Autocomplete Error: $e');
+      print('❌ Error type: ${e.runtimeType}');
     }
     return [];
   }
