@@ -7,7 +7,8 @@ A comprehensive Flutter mobile application for comparing cab fares across multip
 
 
 ## Fare Comparison Page
-<img width="576" height="1280" alt="image" src="https://github.com/user-attachments/assets/5ad51252-6019-44f3-b05b-0a78c95e464e" />
+<img width="576" height="1280" alt="image" src="https://github.com/user-attachments/assets/e0829ea3-6627-4bbf-8dec-bd727d7a69d8" />
+
 
 
 
