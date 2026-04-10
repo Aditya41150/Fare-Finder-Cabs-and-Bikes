@@ -24,10 +24,12 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   void _calculateDistance() {
-    final lat1 = widget.pickup['lat'];
-    final lng1 = widget.pickup['lng'];
-    final lat2 = widget.destination['lat'];
-    final lng2 = widget.destination['lng'];
+    final lat1 = widget.pickup['lat'] as double?;
+    final lng1 = widget.pickup['lng'] as double?;
+    final lat2 = widget.destination['lat'] as double?;
+    final lng2 = widget.destination['lng'] as double?;
+
+    if (lat1 == null || lng1 == null || lat2 == null || lng2 == null) return;
 
     const earthRadius = 6371.0; // km
     final dLat = (lat2 - lat1) * (pi / 180);
@@ -46,14 +48,23 @@ class _MapScreenState extends State<MapScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final LatLng pickupLatLng = LatLng(
-      widget.pickup['lat'],
-      widget.pickup['lng'],
-    );
-    final LatLng destLatLng = LatLng(
-      widget.destination['lat'],
-      widget.destination['lng'],
-    );
+    final double? lat1 = widget.pickup['lat'] as double?;
+    final double? lng1 = widget.pickup['lng'] as double?;
+    final double? lat2 = widget.destination['lat'] as double?;
+    final double? lng2 = widget.destination['lng'] as double?;
+
+    if (lat1 == null || lng1 == null || lat2 == null || lng2 == null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Invalid location coordinates.')),
+        );
+      });
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
+    final LatLng pickupLatLng = LatLng(lat1, lng1);
+    final LatLng destLatLng = LatLng(lat2, lng2);
 
     return Scaffold(
       backgroundColor: const Color(0xFF5B47ED),
@@ -119,7 +130,7 @@ class _MapScreenState extends State<MapScreen> {
                 borderRadius: BorderRadius.circular(20),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
+                    color: Colors.black.withValues(alpha: 0.1),
                     blurRadius: 20,
                     offset: const Offset(0, 8),
                   ),
@@ -136,7 +147,7 @@ class _MapScreenState extends State<MapScreen> {
                         Container(
                           padding: const EdgeInsets.all(10),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF5B47ED).withOpacity(0.1),
+                            color: const Color(0xFF5B47ED).withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: const Icon(
@@ -202,7 +213,7 @@ class _MapScreenState extends State<MapScreen> {
                 borderRadius: BorderRadius.circular(20),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.2),
+                    color: Colors.black.withValues(alpha: 0.2),
                     blurRadius: 20,
                     offset: const Offset(0, 8),
                   ),

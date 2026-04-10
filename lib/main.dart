@@ -2,31 +2,31 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'providers/fare_provider.dart';
-import 'screens/home_screen_modern.dart'; 
-import 'screens/map_preview_screen.dart';
+import 'screens/home_screen_modern.dart';
+import 'services/api_service.dart';
+// import 'package:device_preview/device_preview.dart';
 
-Future<void> main() async {
+  Future<void> main() async {
   // Ensure Flutter binding is initialized
   WidgetsFlutterBinding.ensureInitialized();
   
-  // Load environment variables with fallback
+  // Load environment variables with fallback.
+  // NOTE: On Flutter Web, .env loading may fail — AppConfig has
+  //       compile-time fallbacks so the app still works correctly.
   try {
     await dotenv.load(fileName: ".env");
-    print('✅ .env file loaded successfully');
-    print('📡 BACKEND_URL: ${dotenv.env['BACKEND_URL'] ?? 'not set'}');
+    print('✅ .env file loaded: BACKEND_URL=${dotenv.env['BACKEND_URL'] ?? 'not set'}');
   } catch (e) {
-    print('⚠️ Warning: .env file not found. Using default configuration.');
-    print('Error: $e');
-    
-    // Initialize dotenv with default values
-    dotenv.testLoad(fileInput: '''
-GOOGLE_PLACES_API_KEY=
-BACKEND_URL=https://fare-finder-cabs-and-bikes-backend.onrender.com/api
-''');
-    print('✅ Using default backend URL: ${dotenv.env['BACKEND_URL']}');
+    print('⚠️ .env not loaded (normal on Flutter Web). Using compile-time fallbacks.');
+    // Load empty map so dotenv.env lookups don't throw — AppConfig fallbacks take over
+    dotenv.testLoad(fileInput: '');
   }
-  
-  runApp(const FareFinder());
+
+  // Fire-and-forget warm-up ping so the Render backend is awake
+  // by the time the user taps "Find Best Rides".
+  ApiService.pingBackend();
+
+  runApp(FareFinder());
 }
 
 class FareFinder extends StatelessWidget {

@@ -3,6 +3,8 @@ class FareEstimate {
   final String name;
   final String provider;
   final int estimatedFare;
+  final int fareMin;
+  final int fareMax;
   final int eta;
   final double surgeMultiplier;
   final String vehicleType;
@@ -15,13 +17,16 @@ class FareEstimate {
     required this.name,
     required this.provider,
     required this.estimatedFare,
+    int? fareMin,
+    int? fareMax,
     required this.eta,
     required this.surgeMultiplier,
     required this.vehicleType,
     required this.distance,
     required this.duration,
-    this.capacity = 4, // Default capacity
-  });
+    this.capacity = 4,
+  })  : fareMin = fareMin ?? estimatedFare,
+        fareMax = fareMax ?? estimatedFare;
 
   factory FareEstimate.fromJson(Map<String, dynamic> json) {
     // Extract provider from the name or use a dedicated field
@@ -61,7 +66,9 @@ class FareEstimate {
       id: json['id'] ?? json['name']?.toString().toLowerCase() ?? '',
       name: name,
       provider: json['provider'] ?? extractProvider(name),
-      estimatedFare: json['estimatedFare'] ?? json['price'] ?? 0,
+      estimatedFare: (json['estimatedFare'] ?? json['price'] ?? 0) as int,
+      fareMin: (json['fareMin'] ?? json['estimatedFare'] ?? json['price'] ?? 0) as int,
+      fareMax: (json['fareMax'] ?? json['estimatedFare'] ?? json['price'] ?? 0) as int,
       eta: json['eta'] ?? 5,
       surgeMultiplier: (json['surgeMultiplier'] ?? 1.0).toDouble(),
       vehicleType: vehicleType,

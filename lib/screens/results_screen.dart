@@ -46,7 +46,8 @@ class _ResultsScreenState extends State<ResultsScreen> {
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.my_location, color: Colors.green, size: 20),
+                    const Icon(Icons.my_location,
+                        color: Colors.green, size: 20),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
@@ -163,8 +164,8 @@ class _ResultsScreenState extends State<ResultsScreen> {
                       padding: const EdgeInsets.all(16.0),
                       child: Row(
                         children: [
-                          Icon(Icons.info_outline, 
-                               color: Colors.blue[600], size: 20),
+                          Icon(Icons.info_outline,
+                              color: Colors.blue[600], size: 20),
                           const SizedBox(width: 8),
                           Text(
                             '${provider.estimates.length} options found',
@@ -203,11 +204,11 @@ class _ResultsScreenState extends State<ResultsScreen> {
                         itemBuilder: (context, index) {
                           final estimate = provider.estimates[index];
                           final isLowest = index == 0;
-                          
+
                           return FareCard(
                             estimate: estimate,
                             isLowest: isLowest,
-                            onBook: () => _bookCab(context, estimate),
+                            onBook: () => _bookCab(estimate),
                           );
                         },
                       ),
@@ -222,7 +223,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
     );
   }
 
-  void _bookCab(BuildContext context, FareEstimate estimate) async {
+  void _bookCab(FareEstimate estimate) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -255,6 +256,8 @@ class _ResultsScreenState extends State<ResultsScreen> {
     );
 
     if (confirmed == true) {
+      if (!mounted) return;
+
       final provider = Provider.of<FareProvider>(context, listen: false);
       final success = await provider.bookCab(
         userId: 'user123', // In real app, get from auth
@@ -263,21 +266,21 @@ class _ResultsScreenState extends State<ResultsScreen> {
         destination: widget.destination,
       );
 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              success 
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            success
                 ? 'Booking confirmed for ${estimate.name}!'
                 : 'Booking failed. Please try again.',
-            ),
-            backgroundColor: success ? Colors.green : Colors.red,
           ),
-        );
+          backgroundColor: success ? Colors.green : Colors.red,
+        ),
+      );
 
-        if (success) {
-          Navigator.pop(context);
-        }
+      if (success) {
+        Navigator.pop(context);
       }
     }
   }

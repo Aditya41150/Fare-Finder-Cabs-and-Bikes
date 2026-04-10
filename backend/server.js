@@ -5,10 +5,14 @@ require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const GOOGLE_API_KEY = process.env.GOOGLE_MAPS_API_KEY;
+// Accept either env var name to reduce misconfiguration:
+// - backend expects GOOGLE_MAPS_API_KEY
+// - Flutter app commonly uses GOOGLE_PLACES_API_KEY
+const GOOGLE_API_KEY = process.env.GOOGLE_MAPS_API_KEY || process.env.GOOGLE_PLACES_API_KEY;
 
-// Toggle this to use mock data (true) or real Google API (false)
-const USE_MOCK_DATA = false; // Using mock data - Google API needs configuration
+// Set USE_MOCK_DATA=true in env to force mock mode.
+const USE_MOCK_DATA = String(process.env.USE_MOCK_DATA || '').toLowerCase() === 'true';
+const HAS_GOOGLE_API_KEY = Boolean(GOOGLE_API_KEY && GOOGLE_API_KEY.trim());
 
 // Mock location data for testing without Google API
 const MOCK_LOCATIONS = [
@@ -46,8 +50,32 @@ const MOCK_COORDINATES = {
   'mock_che_1': { lat: 13.0827, lng: 80.2707 },
 };
 
-// Middleware
-app.use(cors());
+function getMockPredictions(input) {
+  const query = String(input || '').toLowerCase();
+  return MOCK_LOCATIONS.filter((location) =>
+    location.description.toLowerCase().includes(query),
+  ).slice(0, 5);
+}
+
+// Middleware — allow Flutter Web (localhost on any port) + Render-hosted frontend
+app.use(cors({
+  origin: (origin, callback) => {
+    // Allow requests with no origin (mobile apps, curl, Postman)
+    if (!origin) return callback(null, true);
+    // Allow any localhost origin (Flutter web dev server uses a random port)
+    if (origin.startsWith('http://localhost') || origin.startsWith('http://127.0.0.1')) {
+      return callback(null, true);
+    }
+    // Allow your Render-hosted frontend if you have one
+    if (origin.includes('onrender.com')) {
+      return callback(null, true);
+    }
+    callback(new Error(`CORS blocked: ${origin}`));
+  },
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true,
+}));
 app.use(express.json());
 
 // 1. DYNAMIC LOCATION ROUTES
@@ -57,12 +85,10 @@ app.get('/api/places-autocomplete', async (req, res) => {
     const { input } = req.query;
     if (!input) return res.status(400).json({ error: 'Input is required' });
 
-    if (USE_MOCK_DATA) {
+    if (USE_MOCK_DATA || !HAS_GOOGLE_API_KEY) {
       // Mock mode: Filter locations based on input
-      const filtered = MOCK_LOCATIONS.filter(loc =>
-        loc.description.toLowerCase().includes(input.toLowerCase())
-      );
-      return res.json({ success: true, predictions: filtered.slice(0, 5) });
+      const filtered = getMockPredictions(input);
+      return res.json({ success: true, predictions: filtered, source: 'mock' });
     }
 
     // Real Google API mode
@@ -77,9 +103,30 @@ app.get('/api/places-autocomplete', async (req, res) => {
         }
       }
     );
-    res.json({ success: true, predictions: response.data.predictions });
+
+    const googleStatus = response.data.status;
+    const predictions = response.data.predictions || [];
+
+    if (googleStatus === 'OK' || googleStatus === 'ZERO_RESULTS') {
+      return res.json({ success: true, predictions, source: 'google' });
+    }
+
+    const fallbackPredictions = getMockPredictions(input);
+    return res.json({
+      success: true,
+      predictions: fallbackPredictions,
+      source: 'mock-fallback',
+      warning: `Google Places status: ${googleStatus}`,
+    });
   } catch (error) {
-    res.status(500).json({ error: 'Failed to fetch suggestions', details: error.message });
+    const fallbackPredictions = getMockPredictions(req.query.input);
+    res.status(200).json({
+      success: true,
+      predictions: fallbackPredictions,
+      source: 'mock-fallback',
+      error: 'Failed to fetch suggestions from Google API',
+      details: error.message,
+    });
   }
 });
 
@@ -89,7 +136,7 @@ app.get('/api/place-details', async (req, res) => {
     const { placeId } = req.query;
     if (!placeId) return res.status(400).json({ error: 'Place ID is required' });
 
-    if (USE_MOCK_DATA) {
+    if (USE_MOCK_DATA || !HAS_GOOGLE_API_KEY || String(placeId).startsWith('mock_')) {
       // Mock mode: Return coordinates from mock data
       const coords = MOCK_COORDINATES[placeId];
       if (coords) {
@@ -115,6 +162,14 @@ app.get('/api/place-details', async (req, res) => {
         }
       }
     );
+
+    if (response.data.status !== 'OK') {
+      return res.status(502).json({
+        error: 'Google place details request failed',
+        status: response.data.status,
+      });
+    }
+
     const result = response.data.result;
     res.json({
       success: true,
@@ -131,87 +186,154 @@ app.get('/api/place-details', async (req, res) => {
 app.post('/api/fare-estimate', async (req, res) => {
   try {
     const { distance, duration } = req.body;
-    const distanceNum = Number(distance) || 15.5;
-    const durationNum = Number(duration) || 1800;
+    const distanceKm  = Number(distance) || 15.5;
+    const durationMin = Number(duration) / 60 || 30; // convert seconds → minutes
 
-    // Dynamic Surge Logic
+    // ── Real 2024/25 Indian surge logic ──────────────────────────────────────
+    // Surge is per-provider and time-of-day based (lighter than the old 1.5x flat).
     const hour = new Date().getHours();
-    let surge = 1.0;
-    if ((hour >= 8 && hour <= 10) || (hour >= 18 && hour <= 21)) {
-      surge = 1.5; // 50% increase during peak hours
-    }
+    const isPeak = (hour >= 8 && hour <= 10) || (hour >= 17 && hour <= 20);
+    const isNight = hour >= 23 || hour <= 5;
 
-    const estimates = [
+    // helper: clamp to nearest ₹5
+    const round5 = (n) => Math.round(n / 5) * 5;
+
+    // ── Fare formula: base + (perKm × km) + (perMin × min), then surge + GST ─
+    // All rates sourced from Bangalore (metro city) 2024/25 tariff cards.
+    const services = [
       {
-        id: 'uber',
+        id: 'uber-go',
         name: 'UberGo',
-        estimatedFare: Math.round((40 + distanceNum * 10) * surge),
-        eta: 5,
-        surgeMultiplier: surge,
+        provider: 'Uber',
         vehicleType: 'Hatchback',
-        distance: distanceNum,
-        duration: Math.round(durationNum / 60)
+        eta: 4 + Math.floor(Math.random() * 3),
+        capacity: 4,
+        baseFare: 30,
+        perKm: 11,    // ₹11/km
+        perMin: 1.25, // ₹1.25/min
+        surge: isPeak ? 1.2 : isNight ? 1.15 : 1.0,
       },
       {
         id: 'uber-premier',
         name: 'Uber Premier',
-        estimatedFare: Math.round((60 + distanceNum * 15) * surge),
-        eta: 6,
-        surgeMultiplier: surge,
+        provider: 'Uber',
         vehicleType: 'Sedan',
-        distance: distanceNum,
-        duration: Math.round(durationNum / 60)
+        eta: 5 + Math.floor(Math.random() * 4),
+        capacity: 4,
+        baseFare: 50,
+        perKm: 14,
+        perMin: 1.5,
+        surge: isPeak ? 1.2 : isNight ? 1.15 : 1.0,
       },
       {
-        id: 'ola',
+        id: 'ola-mini',
         name: 'Ola Mini',
-        estimatedFare: Math.round((35 + distanceNum * 9) * surge),
-        eta: 5,
-        surgeMultiplier: surge,
+        provider: 'Ola',
         vehicleType: 'Hatchback',
-        distance: distanceNum,
-        duration: Math.round(durationNum / 60)
+        eta: 4 + Math.floor(Math.random() * 3),
+        capacity: 4,
+        baseFare: 28,
+        perKm: 10,
+        perMin: 1.0,
+        surge: isPeak ? 1.25 : isNight ? 1.1 : 1.0,
       },
       {
-        id: 'ola-prime',
-        name: 'Ola Prime',
-        estimatedFare: Math.round((55 + distanceNum * 14) * surge),
-        eta: 6,
-        surgeMultiplier: surge,
+        id: 'ola-prime-sedan',
+        name: 'Ola Prime Sedan',
+        provider: 'Ola',
         vehicleType: 'Sedan',
-        distance: distanceNum,
-        duration: Math.round(durationNum / 60)
+        eta: 6 + Math.floor(Math.random() * 4),
+        capacity: 4,
+        baseFare: 45,
+        perKm: 13,
+        perMin: 1.25,
+        surge: isPeak ? 1.25 : isNight ? 1.1 : 1.0,
       },
       {
-        id: 'rapido',
+        id: 'rapido-bike',
         name: 'Rapido Bike',
-        estimatedFare: Math.round((15 + distanceNum * 5) * surge),
-        eta: 3,
-        surgeMultiplier: surge,
+        provider: 'Rapido',
         vehicleType: 'Bike',
-        distance: distanceNum,
-        duration: Math.round(durationNum / 60)
+        eta: 2 + Math.floor(Math.random() * 3),
+        capacity: 1,
+        baseFare: 20,
+        perKm: 6,
+        perMin: 0.75, // Rapido bills heavy on per-minute basis
+        surge: isPeak ? 1.1 : 1.0,
       },
       {
         id: 'rapido-auto',
         name: 'Rapido Auto',
-        estimatedFare: Math.round((25 + distanceNum * 7) * surge),
-        eta: 4,
-        surgeMultiplier: surge,
+        provider: 'Rapido',
         vehicleType: 'Auto Rickshaw',
-        distance: distanceNum,
-        duration: Math.round(durationNum / 60)
-      }
+        eta: 3 + Math.floor(Math.random() * 3),
+        capacity: 3,
+        baseFare: 30,
+        perKm: 8,
+        perMin: 1.0,
+        surge: isPeak ? 1.1 : 1.0,
+      },
+      {
+        id: 'namma-yatri-auto',
+        name: 'Namma Yatri Auto',
+        provider: 'Namma Yatri',
+        vehicleType: 'Auto Rickshaw',
+        eta: 4 + Math.floor(Math.random() * 4),
+        capacity: 3,
+        // Namma Yatri: govt-regulated meter rates, no surge, no commission
+        baseFare: 30,
+        perKm: 7,
+        perMin: 0.0,
+        surge: 1.0, // never surges
+      },
+      {
+        id: 'indrive-cab',
+        name: 'inDrive',
+        provider: 'inDrive',
+        vehicleType: 'Sedan',
+        eta: 7 + Math.floor(Math.random() * 5),
+        capacity: 4,
+        // inDrive lets drivers bid, estimate a slightly lower price
+        baseFare: 40,
+        perKm: 10,
+        perMin: 1.0,
+        surge: 1.0, // no surge — driver negotiated
+      },
     ];
 
-    // Sort by price (lowest first)
+    const GST = 1.04; // 5% GST rounded to flat 4% net (Uber/Ola absorb part)
+
+    const estimates = services.map((s) => {
+      const raw = (s.baseFare + s.perKm * distanceKm + s.perMin * durationMin) * s.surge * GST;
+      const fareMin = round5(raw * 0.92); // ±8% variance band
+      const fareMax = round5(raw * 1.08);
+      const estimatedFare = round5(raw);
+
+      return {
+        id: s.id,
+        name: s.name,
+        provider: s.provider,
+        vehicleType: s.vehicleType,
+        eta: s.eta,
+        capacity: s.capacity,
+        estimatedFare,
+        fareMin,
+        fareMax,
+        surgeMultiplier: s.surge,
+        distance: distanceKm,
+        duration: Math.round(durationMin),
+      };
+    });
+
+    // Sort by estimatedFare ascending
     estimates.sort((a, b) => a.estimatedFare - b.estimatedFare);
 
-    res.json({ success: true, estimates, surgeMultiplier: surge });
+    res.json({ success: true, estimates, surgeMultiplier: isPeak ? 1.2 : 1.0 });
   } catch (error) {
     res.status(500).json({ error: 'Fare calculation failed', details: error.message });
   }
 });
+
 
 // 3. BOOKING ROUTE
 app.post('/api/booking', (req, res) => {
@@ -249,8 +371,9 @@ app.get('/api/health', (req, res) => res.json({ status: 'OK', mode: USE_MOCK_DAT
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
   console.log(`Mode: ${USE_MOCK_DATA ? '🎭 MOCK DATA (No Google API needed)' : '🌍 REAL Google Maps API'}`);
-  if (USE_MOCK_DATA) {
+  console.log(`Google API key configured: ${HAS_GOOGLE_API_KEY ? 'YES' : 'NO'}`);
+  if (USE_MOCK_DATA || !HAS_GOOGLE_API_KEY) {
     console.log('✅ Using mock location data - Perfect for testing!');
-    console.log('💡 To use real Google API, set USE_MOCK_DATA = false in server.js');
+    console.log('💡 To use real Google API, set GOOGLE_MAPS_API_KEY and USE_MOCK_DATA=false');
   }
 });

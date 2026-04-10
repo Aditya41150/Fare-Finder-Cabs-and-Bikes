@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:geocoding/geocoding.dart';
 import 'dart:math';
 import 'dart:ui';
 import '../providers/fare_provider.dart';
@@ -23,7 +25,12 @@ class _HomeScreenModernState extends State<HomeScreenModern>
 
   PlacePrediction? _selectedPickupPlace;
   PlacePrediction? _selectedDestinationPlace;
+  Map<String, double>? _pickupCoordinates;
+  Map<String, double>? _destinationCoordinates;
+  String? _resolvedPickupText;
+  String? _resolvedDestinationText;
   bool _isCalculatingDistance = false;
+  bool _isFetchingCurrentLocation = false;
 
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
@@ -33,6 +40,27 @@ class _HomeScreenModernState extends State<HomeScreenModern>
   @override
   void initState() {
     super.initState();
+
+    // If the user edits text after selecting a suggestion, clear the cached
+    // selection/coordinates so we don't calculate with stale placeIds.
+    _pickupController.addListener(() {
+      final text = _pickupController.text.trim();
+      if (_resolvedPickupText != null && text != _resolvedPickupText) {
+        _resolvedPickupText = null;
+        _selectedPickupPlace = null;
+        _pickupCoordinates = null;
+      }
+    });
+    _destinationController.addListener(() {
+      final text = _destinationController.text.trim();
+      if (_resolvedDestinationText != null &&
+          text != _resolvedDestinationText) {
+        _resolvedDestinationText = null;
+        _selectedDestinationPlace = null;
+        _destinationCoordinates = null;
+      }
+    });
+
     _animationController = AnimationController(
       duration: const Duration(milliseconds: 1200),
       vsync: this,
@@ -65,6 +93,105 @@ class _HomeScreenModernState extends State<HomeScreenModern>
     _animationController.forward();
   }
 
+  Future<void> _useCurrentLocationForPickup() async {
+    if (_isFetchingCurrentLocation) return;
+
+    setState(() {
+      _isFetchingCurrentLocation = true;
+    });
+
+    try {
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content:
+                  Text('Location services are disabled. Please enable GPS.'),
+            ),
+          );
+        }
+        return;
+      }
+
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content:
+                  Text('Location permission denied. Please allow permission.'),
+            ),
+          );
+        }
+        return;
+      }
+
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+        ),
+      );
+
+      String addressText =
+          '${position.latitude.toStringAsFixed(6)}, ${position.longitude.toStringAsFixed(6)}';
+
+      try {
+        final placemarks = await placemarkFromCoordinates(
+          position.latitude,
+          position.longitude,
+        );
+        if (placemarks.isNotEmpty) {
+          final place = placemarks.first;
+          final locality = place.locality?.trim() ?? '';
+          final subLocality = place.subLocality?.trim() ?? '';
+          final administrativeArea = place.administrativeArea?.trim() ?? '';
+
+          final parts = [subLocality, locality, administrativeArea]
+              .where((part) => part.isNotEmpty)
+              .toList();
+
+          if (parts.isNotEmpty) {
+            addressText = parts.join(', ');
+          }
+        }
+      } catch (_) {}
+
+      if (!mounted) return;
+
+      setState(() {
+        _pickupController.text = addressText;
+        _selectedPickupPlace = null;
+        _pickupCoordinates = {
+          'lat': position.latitude,
+          'lng': position.longitude,
+        };
+        _resolvedPickupText = addressText.trim();
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Using current location as pickup.')),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not fetch current location: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isFetchingCurrentLocation = false;
+        });
+      }
+    }
+  }
+
   @override
   void dispose() {
     _pickupController.dispose();
@@ -73,8 +200,163 @@ class _HomeScreenModernState extends State<HomeScreenModern>
     super.dispose();
   }
 
+  PlacePrediction _pickBestPrediction(
+    String query,
+    List<PlacePrediction> predictions,
+  ) {
+    final normalizedQuery = query.trim().toLowerCase();
+
+    for (final prediction in predictions) {
+      if (prediction.description.trim().toLowerCase() == normalizedQuery) {
+        return prediction;
+      }
+    }
+
+    for (final prediction in predictions) {
+      if (prediction.description.toLowerCase().contains(normalizedQuery)) {
+        return prediction;
+      }
+    }
+
+    return predictions.first;
+  }
+
+  Future<void> _resolveTypedLocationInputs() async {
+    final pickupText = _pickupController.text.trim();
+    if (_pickupCoordinates == null &&
+        _selectedPickupPlace == null &&
+        pickupText.isNotEmpty) {
+      final predictions =
+          await PlacesService.getAutocompletePredictions(pickupText);
+      if (predictions.isNotEmpty) {
+        final bestMatch = _pickBestPrediction(pickupText, predictions);
+        final coords =
+            await PlacesService.getPlaceCoordinates(bestMatch.placeId);
+        if (!mounted) return;
+        if (coords != null) {
+          setState(() {
+            _selectedPickupPlace = bestMatch;
+            _pickupCoordinates = coords;
+            _resolvedPickupText = pickupText;
+          });
+        }
+      }
+
+      if (_pickupCoordinates == null) {
+        final fallbackCoords = await _geocodeAddressText(pickupText);
+        if (!mounted) return;
+        if (fallbackCoords != null) {
+          setState(() {
+            _pickupCoordinates = fallbackCoords;
+            _resolvedPickupText = pickupText;
+          });
+        }
+      }
+    }
+
+    final destinationText = _destinationController.text.trim();
+    if (_destinationCoordinates == null &&
+        _selectedDestinationPlace == null &&
+        destinationText.isNotEmpty) {
+      final predictions =
+          await PlacesService.getAutocompletePredictions(destinationText);
+      if (predictions.isNotEmpty) {
+        final bestMatch = _pickBestPrediction(destinationText, predictions);
+        final coords =
+            await PlacesService.getPlaceCoordinates(bestMatch.placeId);
+        if (!mounted) return;
+        if (coords != null) {
+          setState(() {
+            _selectedDestinationPlace = bestMatch;
+            _destinationCoordinates = coords;
+            _resolvedDestinationText = destinationText;
+          });
+        }
+      }
+
+      if (_destinationCoordinates == null) {
+        final fallbackCoords = await _geocodeAddressText(destinationText);
+        if (!mounted) return;
+        if (fallbackCoords != null) {
+          setState(() {
+            _destinationCoordinates = fallbackCoords;
+            _resolvedDestinationText = destinationText;
+          });
+        }
+      }
+    }
+  }
+
+  Future<Map<String, double>?> _geocodeAddressText(String address) async {
+    final query = address.trim();
+    if (query.isEmpty) return null;
+
+    try {
+      final serviceCoords = await PlacesService.getCoordinatesFromText(query);
+      if (serviceCoords != null) {
+        return serviceCoords;
+      }
+    } catch (_) {}
+
+    try {
+      final locations = await locationFromAddress(query);
+      if (locations.isEmpty) return null;
+
+      return {
+        'lat': locations.first.latitude,
+        'lng': locations.first.longitude,
+      };
+    } catch (_) {
+      return null;
+    }
+  }
+
   void _searchFares() async {
     if (_formKey.currentState!.validate()) {
+      await _resolveTypedLocationInputs();
+      if (!mounted) return;
+
+      // When the user types arbitrary text without selecting an autocomplete
+      // suggestion, we won't have a placeId to resolve coordinates. Fail fast
+      // with a clear message instead of silently proceeding.
+      if (_pickupCoordinates == null && _selectedPickupPlace == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text(
+                'Please select a pickup location from the suggestions.',
+              ),
+              backgroundColor: const Color(0xFFEF4444),
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              margin: const EdgeInsets.all(16),
+            ),
+          );
+        }
+        return;
+      }
+      if (_destinationCoordinates == null &&
+          _selectedDestinationPlace == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text(
+                'Please select a destination from the suggestions.',
+              ),
+              backgroundColor: const Color(0xFFEF4444),
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              margin: const EdgeInsets.all(16),
+            ),
+          );
+        }
+        return;
+      }
+
       setState(() {
         _isCalculatingDistance = true;
       });
@@ -82,23 +364,67 @@ class _HomeScreenModernState extends State<HomeScreenModern>
       double distance = 15.5;
       double duration = 1800;
 
-      if (_selectedPickupPlace != null && _selectedDestinationPlace != null) {
+      if ((_pickupCoordinates != null || _selectedPickupPlace != null) &&
+          (_destinationCoordinates != null ||
+              _selectedDestinationPlace != null)) {
         try {
-          final pickupCoords = await PlacesService.getPlaceCoordinates(
-            _selectedPickupPlace!.placeId,
-          );
-          final destCoords = await PlacesService.getPlaceCoordinates(
-            _selectedDestinationPlace!.placeId,
-          );
+          final pickupCoords = _pickupCoordinates ??
+              await PlacesService.getPlaceCoordinates(
+                  _selectedPickupPlace!.placeId);
+          final destCoords = _destinationCoordinates ??
+              await PlacesService.getPlaceCoordinates(
+                _selectedDestinationPlace!.placeId,
+              );
 
           if (pickupCoords != null && destCoords != null) {
-            distance = _calculateDistance(
+            // Try OSRM for real road distance first.
+            final osrm = await PlacesService.getRoadDistanceOSRM(
               pickupCoords['lat']!,
               pickupCoords['lng']!,
               destCoords['lat']!,
               destCoords['lng']!,
             );
-            duration = (distance / 30) * 3600;
+
+            if (osrm != null) {
+              distance = osrm['distance']!;   // already in km
+              duration = osrm['duration']!;   // already in seconds
+              debugPrint('✅ OSRM road distance: ${distance.toStringAsFixed(2)} km, '
+                  '${(duration / 60).toStringAsFixed(0)} min');
+            } else {
+              // Fallback: Haversine × 1.35 road-correction factor
+              final straightLine = _calculateDistance(
+                pickupCoords['lat']!,
+                pickupCoords['lng']!,
+                destCoords['lat']!,
+                destCoords['lng']!,
+              );
+              distance = straightLine * 1.35;
+              duration = (distance / 28) * 3600; // ~28 km/h avg Indian city speed
+              debugPrint('⚠️ OSRM unavailable. Haversine×1.35 = ${distance.toStringAsFixed(2)} km');
+            }
+
+            // Guard against absurdly large distances.
+            final pickupText = _pickupController.text.trim();
+            final destinationText = _destinationController.text.trim();
+            final hasDetailedPickup = pickupText.contains(',');
+            final hasDetailedDestination = destinationText.contains(',');
+            if (distance > 100 &&
+                (!hasDetailedPickup || !hasDetailedDestination)) {
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text(
+                      'Location seems too far for a local ride. Please choose a more specific pickup/destination from suggestions.',
+                    ),
+                    backgroundColor: Color(0xFFEF4444),
+                  ),
+                );
+              }
+              setState(() {
+                _isCalculatingDistance = false;
+              });
+              return;
+            }
           }
         } catch (e) {
           debugPrint('Error calculating distance: $e');
@@ -112,7 +438,13 @@ class _HomeScreenModernState extends State<HomeScreenModern>
       Map<String, dynamic>? pickupData;
       Map<String, dynamic>? destinationData;
 
-      if (_selectedPickupPlace != null) {
+      if (_pickupCoordinates != null) {
+        pickupData = {
+          'address': _pickupController.text,
+          'lat': _pickupCoordinates!['lat'],
+          'lng': _pickupCoordinates!['lng'],
+        };
+      } else if (_selectedPickupPlace != null) {
         try {
           final coords = await PlacesService.getPlaceCoordinates(
             _selectedPickupPlace!.placeId,
@@ -129,7 +461,13 @@ class _HomeScreenModernState extends State<HomeScreenModern>
         }
       }
 
-      if (_selectedDestinationPlace != null) {
+      if (_destinationCoordinates != null) {
+        destinationData = {
+          'address': _destinationController.text,
+          'lat': _destinationCoordinates!['lat'],
+          'lng': _destinationCoordinates!['lng'],
+        };
+      } else if (_selectedDestinationPlace != null) {
         try {
           final coords = await PlacesService.getPlaceCoordinates(
             _selectedDestinationPlace!.placeId,
@@ -150,10 +488,12 @@ class _HomeScreenModernState extends State<HomeScreenModern>
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: const Text('Unable to get location coordinates. Please try again.'),
+              content: const Text(
+                  'Unable to get location coordinates. Please try again.'),
               backgroundColor: const Color(0xFFEF4444),
               behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
               margin: const EdgeInsets.all(16),
             ),
           );
@@ -245,7 +585,7 @@ class _HomeScreenModernState extends State<HomeScreenModern>
                   ),
                 ),
               ),
-              
+
               // Main content
               SingleChildScrollView(
                 physics: const BouncingScrollPhysics(),
@@ -257,7 +597,7 @@ class _HomeScreenModernState extends State<HomeScreenModern>
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         const SizedBox(height: 20),
-                        
+
                         // Header
                         SlideTransition(
                           position: _slideAnimation,
@@ -301,9 +641,9 @@ class _HomeScreenModernState extends State<HomeScreenModern>
                             ],
                           ),
                         ),
-                        
+
                         const SizedBox(height: 50),
-                        
+
                         // Main Card with glassmorphism
                         ScaleTransition(
                           scale: _scaleAnimation,
@@ -340,42 +680,143 @@ class _HomeScreenModernState extends State<HomeScreenModern>
                                           hint: 'Where are you?',
                                           icon: Icons.trip_origin_rounded,
                                           iconColor: const Color(0xFF10B981),
-                                          onPlaceSelected: (place) {
-                                            setState(() => _selectedPickupPlace = place);
+                                          onPlaceSelected: (place) async {
+                                            setState(() {
+                                              _selectedPickupPlace = place;
+                                              _pickupCoordinates = null;
+                                              _resolvedPickupText = null;
+                                            });
+
+                                            final coords = await PlacesService
+                                                .getPlaceCoordinates(
+                                              place.placeId,
+                                            );
+                                            if (!mounted) return;
+                                            if (_pickupController.text.trim() !=
+                                                place.description.trim()) {
+                                              return;
+                                            }
+                                            if (coords == null) {
+                                              ScaffoldMessenger.of(this.context)
+                                                  .showSnackBar(
+                                                SnackBar(
+                                                  content: const Text(
+                                                    'Could not fetch pickup coordinates. Try another suggestion.',
+                                                  ),
+                                                  backgroundColor:
+                                                      const Color(0xFFEF4444),
+                                                  behavior:
+                                                      SnackBarBehavior.floating,
+                                                  shape: RoundedRectangleBorder(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                      12,
+                                                    ),
+                                                  ),
+                                                  margin:
+                                                      const EdgeInsets.all(16),
+                                                ),
+                                              );
+                                              return;
+                                            }
+                                            setState(() {
+                                              _pickupCoordinates = coords;
+                                              _resolvedPickupText =
+                                                  _pickupController.text.trim();
+                                            });
                                           },
                                         ),
-                                        
+
+                                        const SizedBox(height: 12),
+
+                                        Align(
+                                          alignment: Alignment.centerLeft,
+                                          child: TextButton.icon(
+                                            onPressed: _isFetchingCurrentLocation
+                                                ? null
+                                                : _useCurrentLocationForPickup,
+                                            icon: _isFetchingCurrentLocation
+                                                ? const SizedBox(
+                                                    height: 16,
+                                                    width: 16,
+                                                    child:
+                                                        CircularProgressIndicator(
+                                                      strokeWidth: 2,
+                                                      color: Colors.white,
+                                                    ),
+                                                  )
+                                                : const Icon(
+                                                    Icons.my_location_rounded,
+                                                    color: Colors.white,
+                                                    size: 18,
+                                                  ),
+                                            label: Text(
+                                              _isFetchingCurrentLocation
+                                                  ? 'Fetching current location...'
+                                                  : 'Use current location',
+                                              style: const TextStyle(
+                                                color: Colors.white,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+
                                         const SizedBox(height: 20),
-                                        
+
                                         // Swap Button
                                         Center(
                                           child: Container(
                                             decoration: BoxDecoration(
-                                              color: Colors.white.withOpacity(0.2),
-                                              borderRadius: BorderRadius.circular(16),
+                                              color:
+                                                  Colors.white.withOpacity(0.2),
+                                              borderRadius:
+                                                  BorderRadius.circular(16),
                                               border: Border.all(
-                                                color: Colors.white.withOpacity(0.3),
+                                                color: Colors.white
+                                                    .withOpacity(0.3),
                                               ),
                                             ),
                                             child: IconButton(
-                                              icon: const Icon(Icons.swap_vert_rounded),
+                                              icon: const Icon(
+                                                  Icons.swap_vert_rounded),
                                               color: Colors.white,
                                               iconSize: 28,
                                               onPressed: () {
-                                                final temp = _pickupController.text;
-                                                _pickupController.text = _destinationController.text;
-                                                _destinationController.text = temp;
-                                                
-                                                final tempPlace = _selectedPickupPlace;
-                                                _selectedPickupPlace = _selectedDestinationPlace;
-                                                _selectedDestinationPlace = tempPlace;
+                                                final temp =
+                                                    _pickupController.text;
+                                                _pickupController.text =
+                                                    _destinationController.text;
+                                                _destinationController.text =
+                                                    temp;
+
+                                                final tempPlace =
+                                                    _selectedPickupPlace;
+                                                _selectedPickupPlace =
+                                                    _selectedDestinationPlace;
+                                                _selectedDestinationPlace =
+                                                    tempPlace;
+
+                                                final tempCoords =
+                                                    _pickupCoordinates;
+                                                _pickupCoordinates =
+                                                    _destinationCoordinates;
+                                                _destinationCoordinates =
+                                                    tempCoords;
+
+                                                final tempResolvedText =
+                                                    _resolvedPickupText;
+                                                _resolvedPickupText =
+                                                    _resolvedDestinationText;
+                                                _resolvedDestinationText =
+                                                    tempResolvedText;
                                               },
                                             ),
                                           ),
                                         ),
-                                        
+
                                         const SizedBox(height: 20),
-                                        
+
                                         // Destination Location
                                         _buildModernLocationField(
                                           controller: _destinationController,
@@ -383,51 +824,108 @@ class _HomeScreenModernState extends State<HomeScreenModern>
                                           hint: 'Where to?',
                                           icon: Icons.location_on_rounded,
                                           iconColor: const Color(0xFFEF4444),
-                                          onPlaceSelected: (place) {
-                                            setState(() => _selectedDestinationPlace = place);
+                                          onPlaceSelected: (place) async {
+                                            setState(() {
+                                              _selectedDestinationPlace = place;
+                                              _destinationCoordinates = null;
+                                              _resolvedDestinationText = null;
+                                            });
+
+                                            final coords = await PlacesService
+                                                .getPlaceCoordinates(
+                                              place.placeId,
+                                            );
+                                            if (!mounted) return;
+                                            if (_destinationController.text
+                                                    .trim() !=
+                                                place.description.trim()) {
+                                              return;
+                                            }
+                                            if (coords == null) {
+                                              ScaffoldMessenger.of(this.context)
+                                                  .showSnackBar(
+                                                SnackBar(
+                                                  content: const Text(
+                                                    'Could not fetch destination coordinates. Try another suggestion.',
+                                                  ),
+                                                  backgroundColor:
+                                                      const Color(0xFFEF4444),
+                                                  behavior:
+                                                      SnackBarBehavior.floating,
+                                                  shape: RoundedRectangleBorder(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                      12,
+                                                    ),
+                                                  ),
+                                                  margin:
+                                                      const EdgeInsets.all(16),
+                                                ),
+                                              );
+                                              return;
+                                            }
+                                            setState(() {
+                                              _destinationCoordinates = coords;
+                                              _resolvedDestinationText =
+                                                  _destinationController.text
+                                                      .trim();
+                                            });
                                           },
                                         ),
-                                        
+
                                         const SizedBox(height: 32),
-                                        
+
                                         // Search Button
                                         SizedBox(
                                           width: double.infinity,
                                           height: 60,
                                           child: ElevatedButton(
-                                            onPressed: _isCalculatingDistance ? null : _searchFares,
+                                            onPressed: _isCalculatingDistance
+                                                ? null
+                                                : _searchFares,
                                             style: ElevatedButton.styleFrom(
                                               backgroundColor: Colors.white,
-                                              foregroundColor: const Color(0xFF5B47ED),
-                                              disabledBackgroundColor: Colors.white.withOpacity(0.3),
+                                              foregroundColor:
+                                                  const Color(0xFF5B47ED),
+                                              disabledBackgroundColor:
+                                                  Colors.white.withOpacity(0.3),
                                               shape: RoundedRectangleBorder(
-                                                borderRadius: BorderRadius.circular(20),
+                                                borderRadius:
+                                                    BorderRadius.circular(20),
                                               ),
                                               elevation: 0,
-                                              shadowColor: Colors.black.withOpacity(0.3),
+                                              shadowColor:
+                                                  Colors.black.withOpacity(0.3),
                                             ),
                                             child: _isCalculatingDistance
                                                 ? const SizedBox(
                                                     height: 24,
                                                     width: 24,
-                                                    child: CircularProgressIndicator(
+                                                    child:
+                                                        CircularProgressIndicator(
                                                       color: Color(0xFF5B47ED),
                                                       strokeWidth: 2.5,
                                                     ),
                                                   )
                                                 : const Row(
-                                                    mainAxisAlignment: MainAxisAlignment.center,
+                                                    mainAxisAlignment:
+                                                        MainAxisAlignment
+                                                            .center,
                                                     children: [
                                                       Text(
                                                         'Find Best Rides',
                                                         style: TextStyle(
                                                           fontSize: 18,
-                                                          fontWeight: FontWeight.bold,
+                                                          fontWeight:
+                                                              FontWeight.bold,
                                                           letterSpacing: 0.5,
                                                         ),
                                                       ),
                                                       SizedBox(width: 8),
-                                                      Icon(Icons.arrow_forward_rounded, size: 22),
+                                                      Icon(
+                                                          Icons
+                                                              .arrow_forward_rounded,
+                                                          size: 22),
                                                     ],
                                                   ),
                                           ),
@@ -440,9 +938,9 @@ class _HomeScreenModernState extends State<HomeScreenModern>
                             ),
                           ),
                         ),
-                        
+
                         const SizedBox(height: 40),
-                        
+
                         // Feature Pills
                         SlideTransition(
                           position: _slideAnimation,
@@ -525,8 +1023,7 @@ class _HomeScreenModernState extends State<HomeScreenModern>
     const double earthRadius = 6371;
     double dLat = (lat2 - lat1) * (pi / 180);
     double dLon = (lon2 - lon1) * (pi / 180);
-    double a =
-        sin(dLat / 2) * sin(dLat / 2) +
+    double a = sin(dLat / 2) * sin(dLat / 2) +
         cos(lat1 * (pi / 180)) *
             cos(lat2 * (pi / 180)) *
             sin(dLon / 2) *

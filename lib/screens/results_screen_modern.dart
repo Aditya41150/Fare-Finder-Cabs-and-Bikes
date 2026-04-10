@@ -176,8 +176,10 @@ class _ResultsScreenModernState extends State<ResultsScreenModern>
                                       begin: Alignment.topCenter,
                                       end: Alignment.bottomCenter,
                                       colors: [
-                                        const Color(0xFF10B981).withOpacity(0.5),
-                                        const Color(0xFFEF4444).withOpacity(0.5),
+                                        const Color(0xFF10B981)
+                                            .withOpacity(0.5),
+                                        const Color(0xFFEF4444)
+                                            .withOpacity(0.5),
                                       ],
                                     ),
                                   ),
@@ -354,7 +356,8 @@ class _ResultsScreenModernState extends State<ResultsScreenModern>
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF5B47ED),
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
                 ),
@@ -406,7 +409,8 @@ class _ResultsScreenModernState extends State<ResultsScreenModern>
           child: Row(
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
                   color: const Color(0xFF10B981).withOpacity(0.1),
                   borderRadius: BorderRadius.circular(20),
@@ -443,16 +447,59 @@ class _ResultsScreenModernState extends State<ResultsScreenModern>
           ),
         ),
 
+        // ── Route Stats strip ──────────────────────────────────────────
+        if (provider.estimates.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20.0),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+              decoration: BoxDecoration(
+                color: const Color(0xFF5B47ED).withOpacity(0.06),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: const Color(0xFF5B47ED).withOpacity(0.15),
+                ),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _buildStatChip(
+                    Icons.route_rounded,
+                    '${provider.estimates.first.distance.toStringAsFixed(1)} km',
+                    'Road distance',
+                    const Color(0xFF5B47ED),
+                  ),
+                  Container(width: 1, height: 36, color: const Color(0xFF5B47ED).withOpacity(0.2)),
+                  _buildStatChip(
+                    Icons.access_time_rounded,
+                    '${provider.estimates.first.duration} min',
+                    'Est. travel time',
+                    const Color(0xFF10B981),
+                  ),
+                  Container(width: 1, height: 36, color: const Color(0xFF5B47ED).withOpacity(0.2)),
+                  _buildStatChip(
+                    Icons.local_offer_rounded,
+                    '₹${provider.estimates.first.fareMin}+',
+                    'Starting from',
+                    const Color(0xFFEF4444),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+        const SizedBox(height: 12),
+
         // Disclaimer
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20.0),
           child: Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Colors.amber.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(16),
+              color: Colors.amber.withOpacity(0.08),
+              borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: Colors.amber.withOpacity(0.3),
+                color: Colors.amber.withOpacity(0.25),
                 width: 1,
               ),
             ),
@@ -460,16 +507,16 @@ class _ResultsScreenModernState extends State<ResultsScreenModern>
               children: [
                 Icon(
                   Icons.info_outline_rounded,
-                  size: 20,
+                  size: 16,
                   color: Colors.amber[700],
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'Fares are approximate and may vary based on traffic, demand, and other factors.',
+                    'Fares are estimates. Actual price may vary with traffic & demand.',
                     style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey[700],
+                      fontSize: 11,
+                      color: Colors.grey[600],
                       height: 1.4,
                     ),
                   ),
@@ -479,7 +526,7 @@ class _ResultsScreenModernState extends State<ResultsScreenModern>
           ),
         ),
 
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
 
         // Ride Cards
         Expanded(
@@ -490,7 +537,7 @@ class _ResultsScreenModernState extends State<ResultsScreenModern>
             itemBuilder: (context, index) {
               final estimate = provider.estimates[index];
               final isLowest = index == 0;
-              
+
               return _buildModernRideCard(estimate, isLowest, index);
             },
           ),
@@ -534,7 +581,7 @@ class _ResultsScreenModernState extends State<ResultsScreenModern>
         child: Material(
           color: Colors.transparent,
           child: InkWell(
-            onTap: () => _bookCab(context, estimate),
+            onTap: () => _bookCab(estimate),
             borderRadius: BorderRadius.circular(24),
             child: Padding(
               padding: const EdgeInsets.all(20.0),
@@ -548,7 +595,8 @@ class _ResultsScreenModernState extends State<ResultsScreenModern>
                         width: 56,
                         height: 56,
                         decoration: BoxDecoration(
-                          color: _getProviderColor(estimate.provider).withOpacity(0.1),
+                          color: _getProviderColor(estimate.provider)
+                              .withOpacity(0.1),
                           borderRadius: BorderRadius.circular(16),
                         ),
                         child: Center(
@@ -559,7 +607,7 @@ class _ResultsScreenModernState extends State<ResultsScreenModern>
                         ),
                       ),
                       const SizedBox(width: 16),
-                      
+
                       // Provider Info
                       Expanded(
                         child: Column(
@@ -611,23 +659,64 @@ class _ResultsScreenModernState extends State<ResultsScreenModern>
                           ],
                         ),
                       ),
-                      
+
                       // Price
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
-                          Text(
-                            '₹${estimate.estimatedFare}',
-                            style: const TextStyle(
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF5B47ED),
+                          estimate.fareMin != estimate.fareMax
+                              ? RichText(
+                                  text: TextSpan(
+                                    children: [
+                                      TextSpan(
+                                        text: '₹${estimate.fareMin}',
+                                        style: const TextStyle(
+                                          fontSize: 20,
+                                          fontWeight: FontWeight.bold,
+                                          color: Color(0xFF5B47ED),
+                                        ),
+                                      ),
+                                      TextSpan(
+                                        text: ' – ₹${estimate.fareMax}',
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w600,
+                                          color: const Color(0xFF5B47ED).withOpacity(0.7),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                )
+                              : Text(
+                                  '₹${estimate.estimatedFare}',
+                                  style: const TextStyle(
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFF5B47ED),
+                                  ),
+                                ),
+                          if (estimate.surgeMultiplier > 1.0)
+                            Container(
+                              margin: const EdgeInsets.only(top: 4),
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: Colors.orange.withOpacity(0.15),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                '${estimate.surgeMultiplier.toStringAsFixed(1)}x surge',
+                                style: const TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.orange,
+                                ),
+                              ),
                             ),
-                          ),
+                          const SizedBox(height: 2),
                           Text(
-                            '${estimate.eta} min',
+                            '~${estimate.eta} min away',
                             style: TextStyle(
-                              fontSize: 13,
+                              fontSize: 12,
                               color: Colors.grey[600],
                             ),
                           ),
@@ -635,9 +724,9 @@ class _ResultsScreenModernState extends State<ResultsScreenModern>
                       ),
                     ],
                   ),
-                  
+
                   const SizedBox(height: 16),
-                  
+
                   // Details Row
                   Container(
                     padding: const EdgeInsets.all(12),
@@ -707,6 +796,10 @@ class _ResultsScreenModernState extends State<ResultsScreenModern>
         return const Color(0xFF00D632);
       case 'rapido':
         return const Color(0xFFFDB913);
+      case 'namma yatri':
+        return const Color(0xFF0070F3);
+      case 'indrive':
+        return const Color(0xFF00C853);
       default:
         return const Color(0xFF5B47ED);
     }
@@ -720,12 +813,16 @@ class _ResultsScreenModernState extends State<ResultsScreenModern>
         return '🚕';
       case 'rapido':
         return '🏍️';
-      default:
+      case 'namma yatri':
+        return '🛺';
+      case 'indrive':
         return '🚙';
+      default:
+        return '🚖';
     }
   }
 
-  void _bookCab(BuildContext context, FareEstimate estimate) async {
+  void _bookCab(FareEstimate estimate) async {
     final confirmed = await showModalBottomSheet<bool>(
       context: context,
       backgroundColor: Colors.transparent,
@@ -772,9 +869,16 @@ class _ResultsScreenModernState extends State<ResultsScreenModern>
                   const Divider(height: 24),
                   _buildBookingDetailRow('Service', estimate.name),
                   const Divider(height: 24),
-                  _buildBookingDetailRow('Fare', '₹${estimate.estimatedFare}'),
+                  _buildBookingDetailRow(
+                    'Estimated Fare',
+                    estimate.fareMin != estimate.fareMax
+                        ? '₹${estimate.fareMin} – ₹${estimate.fareMax}'
+                        : '₹${estimate.estimatedFare}',
+                  ),
                   const Divider(height: 24),
-                  _buildBookingDetailRow('ETA', '${estimate.eta} minutes'),
+                  _buildBookingDetailRow('Distance', '${estimate.distance.toStringAsFixed(1)} km'),
+                  const Divider(height: 24),
+                  _buildBookingDetailRow('ETA', '~${estimate.eta} min away'),
                 ],
               ),
             ),
@@ -834,7 +938,9 @@ class _ResultsScreenModernState extends State<ResultsScreenModern>
     if (confirmed == true && mounted) {
       // Open the respective app
       await _openRideApp(estimate);
-      
+
+      if (!mounted) return;
+
       // Also save booking in backend
       final provider = Provider.of<FareProvider>(context, listen: false);
       final success = await provider.bookCab(
@@ -844,23 +950,24 @@ class _ResultsScreenModernState extends State<ResultsScreenModern>
         destination: widget.destination,
       );
 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              success
-                  ? '🎉 Opening ${estimate.provider} app...'
-                  : '❌ Booking failed. Please try again.',
-            ),
-            backgroundColor: success ? const Color(0xFF10B981) : const Color(0xFFEF4444),
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            margin: const EdgeInsets.all(16),
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            success
+                ? '🎉 Opening ${estimate.provider} app...'
+                : '❌ Booking failed. Please try again.',
           ),
-        );
-      }
+          backgroundColor:
+              success ? const Color(0xFF10B981) : const Color(0xFFEF4444),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          margin: const EdgeInsets.all(16),
+        ),
+      );
     }
   }
 
@@ -876,54 +983,72 @@ class _ResultsScreenModernState extends State<ResultsScreenModern>
     switch (estimate.provider.toLowerCase()) {
       case 'uber':
         // Uber deep link
-        appUrl = 'uber://?action=setPickup&pickup[latitude]=$pickupLat&pickup[longitude]=$pickupLng&dropoff[latitude]=$destLat&dropoff[longitude]=$destLng';
-        webUrl = 'https://m.uber.com/ul/?action=setPickup&pickup[latitude]=$pickupLat&pickup[longitude]=$pickupLng&dropoff[latitude]=$destLat&dropoff[longitude]=$destLng';
+        appUrl =
+            'uber://?action=setPickup&pickup[latitude]=$pickupLat&pickup[longitude]=$pickupLng&dropoff[latitude]=$destLat&dropoff[longitude]=$destLng';
+        webUrl =
+            'https://m.uber.com/ul/?action=setPickup&pickup[latitude]=$pickupLat&pickup[longitude]=$pickupLng&dropoff[latitude]=$destLat&dropoff[longitude]=$destLng';
         break;
-      
+
       case 'ola':
         // Ola deep link
-        appUrl = 'olacabs://app/launch?lat=$pickupLat&lng=$pickupLng&drop_lat=$destLat&drop_lng=$destLng';
-        webUrl = 'https://book.olacabs.com/?serviceType=p2p&lat=$pickupLat&lng=$pickupLng&drop_lat=$destLat&drop_lng=$destLng';
+        appUrl =
+            'olacabs://app/launch?lat=$pickupLat&lng=$pickupLng&drop_lat=$destLat&drop_lng=$destLng';
+        webUrl =
+            'https://book.olacabs.com/?serviceType=p2p&lat=$pickupLat&lng=$pickupLng&drop_lat=$destLat&drop_lng=$destLng';
         break;
-      
+
       case 'rapido':
-        // Rapido deep link
-        appUrl = 'rapido://ride?pickup_lat=$pickupLat&pickup_lng=$pickupLng&drop_lat=$destLat&drop_lng=$destLng';
+        appUrl =
+            'rapido://ride?pickup_lat=$pickupLat&pickup_lng=$pickupLng&drop_lat=$destLat&drop_lng=$destLng';
         webUrl = 'https://www.rapido.bike/';
         break;
-      
+
+      case 'namma yatri':
+        // Namma Yatri deep link (opens to Play Store if not installed)
+        appUrl = 'in.juspay.nammayatri://app';
+        webUrl = 'https://play.google.com/store/apps/details?id=in.juspay.nammayatri';
+        break;
+
+      case 'indrive':
+        // inDrive deep link
+        appUrl = 'indrive://';
+        webUrl = 'https://play.google.com/store/apps/details?id=sinet.startup.inDriver';
+        break;
+
       default:
         // Generic fallback - open Google Maps with directions
-        appUrl = 'https://www.google.com/maps/dir/?api=1&origin=$pickupLat,$pickupLng&destination=$destLat,$destLng';
+        appUrl =
+            'https://www.google.com/maps/dir/?api=1&origin=$pickupLat,$pickupLng&destination=$destLat,$destLng';
         webUrl = appUrl;
     }
 
     try {
       // Try to launch the app-specific URL first
-      final Uri appUri = Uri.parse(appUrl!);
+      final Uri appUri = Uri.parse(appUrl);
       if (await canLaunchUrl(appUri)) {
         await launchUrl(appUri, mode: LaunchMode.externalApplication);
       } else {
         // If app is not installed, open web version
-        final Uri webUri = Uri.parse(webUrl!);
+        final Uri webUri = Uri.parse(webUrl);
         await launchUrl(webUri, mode: LaunchMode.externalApplication);
       }
     } catch (e) {
       debugPrint('Error opening app: $e');
       // Show error to user
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Could not open ${estimate.provider} app. Please install it first.'),
-            backgroundColor: const Color(0xFFEF4444),
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            margin: const EdgeInsets.all(16),
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+              'Could not open ${estimate.provider} app. Please install it first.'),
+          backgroundColor: const Color(0xFFEF4444),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
           ),
-        );
-      }
+          margin: const EdgeInsets.all(16),
+        ),
+      );
     }
   }
 
@@ -945,6 +1070,32 @@ class _ResultsScreenModernState extends State<ResultsScreenModern>
             fontSize: 16,
             color: Color(0xFF1E293B),
             fontWeight: FontWeight.bold,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStatChip(IconData icon, String value, String label, Color color) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 20, color: color),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.bold,
+            color: color,
+          ),
+        ),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 10,
+            color: Colors.grey[500],
+            fontWeight: FontWeight.w500,
           ),
         ),
       ],

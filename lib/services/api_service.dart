@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../models/fare_estimate.dart';
 import '../models/booking.dart';
@@ -38,6 +39,19 @@ class ApiService {
       }
     } catch (e) {
       throw Exception('Error: $e');
+    }
+  }
+
+  /// Fire-and-forget: wakes the Render free-tier backend so it is warm
+  /// by the time the user searches for fares. Never throws.
+  static Future<void> pingBackend() async {
+    try {
+      await http
+          .get(Uri.parse('$baseUrl/health'))
+          .timeout(const Duration(seconds: 30));
+      debugPrint('✅ Backend warm-up ping succeeded');
+    } catch (e) {
+      debugPrint('⚠️ Backend warm-up ping failed (will retry on search): $e');
     }
   }
 
