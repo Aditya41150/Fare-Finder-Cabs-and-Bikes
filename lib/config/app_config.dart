@@ -51,10 +51,4 @@ class AppConfig {
   static const String appName = 'FareFinder';
   static const String appVersion = '1.0.0';
   
-  // Instructions for enabling Google Places API
-  static const String placesApiInstructions = '''
-1. Go to Google Cloud Console (console.cloud.google.com)
-2. Enable Places API and Places API (New)
-3. Create API credentials and add GOOGLE_PLACES_API_KEY to .env
-''';
 }

@@ -1,12 +1,16 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
-import 'dart:ui';
 import 'package:url_launcher/url_launcher.dart';
 import '../providers/fare_provider.dart';
 import '../models/fare_estimate.dart';
 import 'map_preview_screen.dart';
 
 class ResultsScreenModern extends StatefulWidget {
+  static const _ink = Color(0xFF1F2933);
+  static const _yellow = Color(0xFFF6C744);
+  static const _canvas = Color(0xFFF7F7F5);
+  static const _border = Color(0xFFE5E7EB);
+
   final String pickup;
   final String destination;
   final Map<String, dynamic> pickupData;
@@ -24,740 +28,110 @@ class ResultsScreenModern extends StatefulWidget {
   State<ResultsScreenModern> createState() => _ResultsScreenModernState();
 }
 
-class _ResultsScreenModernState extends State<ResultsScreenModern>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _animationController;
-  late Animation<double> _slideAnimation;
+class _ResultsScreenModernState extends State<ResultsScreenModern> {
+  String _selectedCategory = 'All';
 
-  @override
-  void initState() {
-    super.initState();
-    _animationController = AnimationController(
-      duration: const Duration(milliseconds: 600),
-      vsync: this,
-    );
-
-    _slideAnimation = CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.easeOutCubic,
-    );
-
-    _animationController.forward();
-  }
-
-  @override
-  void dispose() {
-    _animationController.dispose();
-    super.dispose();
-  }
+  bool _isBike(FareEstimate ride) => ride.isBike;
+  bool _isAuto(FareEstimate ride) => ride.isAuto;
+  bool _isCab(FareEstimate ride) => ride.isCab;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Color(0xFF5B47ED),
-              Color(0xFF7B68EE),
-              Color(0xFF9D8FFF),
-            ],
+      backgroundColor: ResultsScreenModern._canvas,
+      appBar: AppBar(
+        backgroundColor: ResultsScreenModern._canvas,
+        foregroundColor: ResultsScreenModern._ink,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_rounded),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: const Text(
+          'Compare Rides',
+          style: TextStyle(
+            fontWeight: FontWeight.w800,
+            fontSize: 18,
+            color: ResultsScreenModern._ink,
           ),
         ),
-        child: SafeArea(
-          child: Column(
-            children: [
-              // Top Header
-              Padding(
-                padding: const EdgeInsets.all(20.0),
-                child: Row(
-                  children: [
-                    Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: Colors.white.withOpacity(0.3),
-                        ),
-                      ),
-                      child: IconButton(
-                        icon: const Icon(Icons.arrow_back_rounded),
-                        color: Colors.white,
-                        onPressed: () => Navigator.pop(context),
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Available Rides',
-                            style: TextStyle(
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
-                          ),
-                          Text(
-                            'Choose your best option',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: Colors.white.withOpacity(0.8),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: Colors.white.withOpacity(0.3),
-                        ),
-                      ),
-                      child: IconButton(
-                        icon: const Icon(Icons.map_rounded),
-                        color: Colors.white,
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => MapScreen(
-                                pickup: widget.pickupData,
-                                destination: widget.destinationData,
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                  ],
+        actions: [
+          IconButton(
+            tooltip: 'View route on map',
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => MapScreen(
+                  pickup: widget.pickupData,
+                  destination: widget.destinationData,
                 ),
               ),
-
-              // Route Info Card
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20.0),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(20),
-                  child: BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                    child: Container(
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.15),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                          color: Colors.white.withOpacity(0.3),
-                          width: 1.5,
-                        ),
-                      ),
-                      child: Column(
-                        children: [
-                          _buildRouteRow(
-                            Icons.trip_origin_rounded,
-                            widget.pickup,
-                            const Color(0xFF10B981),
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 8.0),
-                            child: Row(
-                              children: [
-                                const SizedBox(width: 12),
-                                Container(
-                                  width: 2,
-                                  height: 20,
-                                  decoration: BoxDecoration(
-                                    gradient: LinearGradient(
-                                      begin: Alignment.topCenter,
-                                      end: Alignment.bottomCenter,
-                                      colors: [
-                                        const Color(0xFF10B981)
-                                            .withOpacity(0.5),
-                                        const Color(0xFFEF4444)
-                                            .withOpacity(0.5),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          _buildRouteRow(
-                            Icons.location_on_rounded,
-                            widget.destination,
-                            const Color(0xFFEF4444),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 20),
-
-              // Results Bottom Sheet
-              Expanded(
-                child: SlideTransition(
-                  position: Tween<Offset>(
-                    begin: const Offset(0, 1),
-                    end: Offset.zero,
-                  ).animate(_slideAnimation),
-                  child: Container(
-                    decoration: const BoxDecoration(
-                      color: Color(0xFFF8FAFC),
-                      borderRadius: BorderRadius.only(
-                        topLeft: Radius.circular(32),
-                        topRight: Radius.circular(32),
-                      ),
-                    ),
-                    child: Consumer<FareProvider>(
-                      builder: (context, provider, child) {
-                        if (provider.isLoading) {
-                          return _buildLoadingState();
-                        }
-
-                        if (provider.error.isNotEmpty) {
-                          return _buildErrorState(provider);
-                        }
-
-                        if (provider.estimates.isEmpty) {
-                          return _buildEmptyState();
-                        }
-
-                        return _buildResultsList(provider);
-                      },
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildRouteRow(IconData icon, String text, Color color) {
-    return Row(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: color.withOpacity(0.2),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Icon(icon, color: color, size: 20),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Text(
-            text,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 15,
-              fontWeight: FontWeight.w500,
             ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+            icon: const Icon(Icons.route_rounded),
           ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildLoadingState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: const Color(0xFF5B47ED).withOpacity(0.1),
-              shape: BoxShape.circle,
-            ),
-            child: const CircularProgressIndicator(
-              color: Color(0xFF5B47ED),
-              strokeWidth: 3,
-            ),
-          ),
-          const SizedBox(height: 24),
-          const Text(
-            'Finding best rides...',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              color: Color(0xFF1E293B),
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Comparing prices across providers',
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey[600],
-            ),
-          ),
+          const SizedBox(width: 8),
         ],
       ),
-    );
-  }
-
-  Widget _buildErrorState(FareProvider provider) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: const Color(0xFFEF4444).withOpacity(0.1),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.error_outline_rounded,
-                size: 64,
-                color: Color(0xFFEF4444),
-              ),
-            ),
-            const SizedBox(height: 24),
-            const Text(
-              'Oops! Something went wrong',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF1E293B),
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 12),
-            Text(
-              provider.error,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey[600],
-              ),
-            ),
-            const SizedBox(height: 32),
-            ElevatedButton(
-              onPressed: () {
-                provider.clearError();
-                Navigator.pop(context);
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF5B47ED),
-                foregroundColor: Colors.white,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-              ),
-              child: const Text(
-                'Try Again',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildEmptyState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+      body: Column(
         children: [
-          Icon(
-            Icons.search_off_rounded,
-            size: 80,
-            color: Colors.grey[400],
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'No rides available',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              color: Colors.grey[700],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildResultsList(FareProvider provider) {
-    return Column(
-      children: [
-        // Header
-        Padding(
-          padding: const EdgeInsets.all(20.0),
-          child: Row(
-            children: [
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF10B981).withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(
-                      Icons.check_circle_rounded,
-                      size: 16,
-                      color: Color(0xFF10B981),
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      '${provider.estimates.length} rides found',
-                      style: const TextStyle(
-                        fontSize: 13,
-                        color: Color(0xFF10B981),
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const Spacer(),
-              Text(
-                'Sorted by price',
-                style: TextStyle(
-                  fontSize: 13,
-                  color: Colors.grey[600],
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
-        ),
-
-        // ── Route Stats strip ──────────────────────────────────────────
-        if (provider.estimates.isNotEmpty)
+          // Route info card
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20.0),
+            padding: const EdgeInsets.fromLTRB(18, 6, 18, 12),
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               decoration: BoxDecoration(
-                color: const Color(0xFF5B47ED).withOpacity(0.06),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: const Color(0xFF5B47ED).withOpacity(0.15),
-                ),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  _buildStatChip(
-                    Icons.route_rounded,
-                    '${provider.estimates.first.distance.toStringAsFixed(1)} km',
-                    'Road distance',
-                    const Color(0xFF5B47ED),
-                  ),
-                  Container(width: 1, height: 36, color: const Color(0xFF5B47ED).withOpacity(0.2)),
-                  _buildStatChip(
-                    Icons.access_time_rounded,
-                    '${provider.estimates.first.duration} min',
-                    'Est. travel time',
-                    const Color(0xFF10B981),
-                  ),
-                  Container(width: 1, height: 36, color: const Color(0xFF5B47ED).withOpacity(0.2)),
-                  _buildStatChip(
-                    Icons.local_offer_rounded,
-                    '₹${provider.estimates.first.fareMin}+',
-                    'Starting from',
-                    const Color(0xFFEF4444),
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: ResultsScreenModern._border),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x0A000000),
+                    blurRadius: 16,
+                    offset: Offset(0, 4),
                   ),
                 ],
               ),
-            ),
-          ),
-
-        const SizedBox(height: 12),
-
-        // Disclaimer
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20.0),
-          child: Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.amber.withOpacity(0.08),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: Colors.amber.withOpacity(0.25),
-                width: 1,
-              ),
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  Icons.info_outline_rounded,
-                  size: 16,
-                  color: Colors.amber[700],
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'Fares are estimates. Actual price may vary with traffic & demand.',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: Colors.grey[600],
-                      height: 1.4,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-
-        const SizedBox(height: 12),
-
-        // Ride Cards
-        Expanded(
-          child: ListView.builder(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            physics: const BouncingScrollPhysics(),
-            itemCount: provider.estimates.length,
-            itemBuilder: (context, index) {
-              final estimate = provider.estimates[index];
-              final isLowest = index == 0;
-
-              return _buildModernRideCard(estimate, isLowest, index);
-            },
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildModernRideCard(FareEstimate estimate, bool isLowest, int index) {
-    return TweenAnimationBuilder<double>(
-      duration: Duration(milliseconds: 400 + (index * 100)),
-      tween: Tween(begin: 0.0, end: 1.0),
-      curve: Curves.easeOutCubic,
-      builder: (context, value, child) {
-        return Transform.translate(
-          offset: Offset(0, 20 * (1 - value)),
-          child: Opacity(
-            opacity: value,
-            child: child,
-          ),
-        );
-      },
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(24),
-          border: isLowest
-              ? Border.all(color: const Color(0xFF10B981), width: 2)
-              : null,
-          boxShadow: [
-            BoxShadow(
-              color: isLowest
-                  ? const Color(0xFF10B981).withOpacity(0.2)
-                  : Colors.black.withOpacity(0.05),
-              blurRadius: isLowest ? 20 : 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: () => _bookCab(estimate),
-            borderRadius: BorderRadius.circular(24),
-            child: Padding(
-              padding: const EdgeInsets.all(20.0),
-              child: Column(
+              child: Row(
                 children: [
-                  // Header Row
-                  Row(
+                  Column(
                     children: [
-                      // Provider Logo
+                      const Icon(Icons.my_location_rounded,
+                          size: 18, color: Color(0xFF10B981)),
                       Container(
-                        width: 56,
-                        height: 56,
-                        decoration: BoxDecoration(
-                          color: _getProviderColor(estimate.provider)
-                              .withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: Center(
-                          child: Text(
-                            _getProviderEmoji(estimate.provider),
-                            style: const TextStyle(fontSize: 28),
-                          ),
-                        ),
+                        width: 1.5,
+                        height: 22,
+                        margin: const EdgeInsets.symmetric(vertical: 2),
+                        color: const Color(0xFFE5E7EB),
                       ),
-                      const SizedBox(width: 16),
-
-                      // Provider Info
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Text(
-                                  estimate.provider,
-                                  style: const TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                    color: Color(0xFF1E293B),
-                                  ),
-                                ),
-                                if (isLowest) ...[
-                                  const SizedBox(width: 8),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 8,
-                                      vertical: 4,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFF10B981),
-                                      borderRadius: BorderRadius.circular(6),
-                                    ),
-                                    child: const Text(
-                                      'BEST PRICE',
-                                      style: TextStyle(
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.white,
-                                        letterSpacing: 0.5,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ],
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              estimate.name,
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: Colors.grey[600],
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      // Price
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          estimate.fareMin != estimate.fareMax
-                              ? RichText(
-                                  text: TextSpan(
-                                    children: [
-                                      TextSpan(
-                                        text: '₹${estimate.fareMin}',
-                                        style: const TextStyle(
-                                          fontSize: 20,
-                                          fontWeight: FontWeight.bold,
-                                          color: Color(0xFF5B47ED),
-                                        ),
-                                      ),
-                                      TextSpan(
-                                        text: ' – ₹${estimate.fareMax}',
-                                        style: TextStyle(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w600,
-                                          color: const Color(0xFF5B47ED).withOpacity(0.7),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                )
-                              : Text(
-                                  '₹${estimate.estimatedFare}',
-                                  style: const TextStyle(
-                                    fontSize: 22,
-                                    fontWeight: FontWeight.bold,
-                                    color: Color(0xFF5B47ED),
-                                  ),
-                                ),
-                          if (estimate.surgeMultiplier > 1.0)
-                            Container(
-                              margin: const EdgeInsets.only(top: 4),
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: Colors.orange.withOpacity(0.15),
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: Text(
-                                '${estimate.surgeMultiplier.toStringAsFixed(1)}x surge',
-                                style: const TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.orange,
-                                ),
-                              ),
-                            ),
-                          const SizedBox(height: 2),
-                          Text(
-                            '~${estimate.eta} min away',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey[600],
-                            ),
-                          ),
-                        ],
-                      ),
+                      const Icon(Icons.location_on_rounded,
+                          size: 18, color: Color(0xFFEF4444)),
                     ],
                   ),
-
-                  const SizedBox(height: 16),
-
-                  // Details Row
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF8FAFC),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _buildDetailItem(
-                          Icons.person_outline_rounded,
-                          '${estimate.capacity} seats',
+                        Text(
+                          widget.pickup,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: ResultsScreenModern._ink,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
-                        Container(
-                          width: 1,
-                          height: 20,
-                          color: Colors.grey[300],
-                        ),
-                        _buildDetailItem(
-                          Icons.access_time_rounded,
-                          '${estimate.eta} min',
-                        ),
-                        Container(
-                          width: 1,
-                          height: 20,
-                          color: Colors.grey[300],
-                        ),
-                        _buildDetailItem(
-                          Icons.route_rounded,
-                          '${estimate.distance.toStringAsFixed(1)} km',
+                        const SizedBox(height: 12),
+                        Text(
+                          widget.destination,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: ResultsScreenModern._ink,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
                       ],
                     ),
@@ -766,141 +140,879 @@ class _ResultsScreenModernState extends State<ResultsScreenModern>
               ),
             ),
           ),
+
+          // Content area
+          Expanded(
+            child: Consumer<FareProvider>(
+              builder: (context, provider, _) {
+                if (provider.isLoading) {
+                  return const Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        CircularProgressIndicator(
+                          color: ResultsScreenModern._ink,
+                          strokeWidth: 3,
+                        ),
+                        SizedBox(height: 16),
+                        Text(
+                          'Comparing live fares across providers...',
+                          style: TextStyle(
+                            color: ResultsScreenModern._ink,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+
+                if (provider.error.isNotEmpty) {
+                  return _buildErrorState(context, provider);
+                }
+
+                if (provider.estimates.isEmpty) {
+                  return const Center(
+                    child: Text(
+                      'No rides available for this route',
+                      style: TextStyle(
+                        color: ResultsScreenModern._ink,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  );
+                }
+
+                return _buildFareList(context, provider);
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildErrorState(BuildContext context, FareProvider provider) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.cloud_off_rounded,
+                size: 52, color: Color(0xFFEF4444)),
+            const SizedBox(height: 16),
+            const Text(
+              'Couldn’t load fares',
+              style: TextStyle(
+                color: ResultsScreenModern._ink,
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              provider.error,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Color(0xFF6B7280),
+                fontSize: 13,
+                height: 1.4,
+              ),
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: ResultsScreenModern._ink,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: const Text('Try Again'),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildDetailItem(IconData icon, String text) {
-    return Row(
+  Widget _buildFareList(BuildContext context, FareProvider provider) {
+    final estimates = provider.estimates;
+    final estimate = estimates.first;
+
+    final overallCheapest = estimates
+        .map((ride) => ride.estimatedFare)
+        .reduce((lowest, fare) => fare < lowest ? fare : lowest);
+
+    final bikes = estimates.where(_isBike).toList();
+    final autos = estimates.where(_isAuto).toList();
+    final cabs = estimates.where(_isCab).toList();
+
+    int? lowestBikeFare;
+    if (bikes.isNotEmpty) {
+      lowestBikeFare = bikes
+          .map((r) => r.estimatedFare)
+          .reduce((a, b) => a < b ? a : b);
+    }
+    int? lowestAutoFare;
+    if (autos.isNotEmpty) {
+      lowestAutoFare = autos
+          .map((r) => r.estimatedFare)
+          .reduce((a, b) => a < b ? a : b);
+    }
+    int? lowestCabFare;
+    if (cabs.isNotEmpty) {
+      lowestCabFare = cabs
+          .map((r) => r.estimatedFare)
+          .reduce((a, b) => a < b ? a : b);
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, size: 18, color: Colors.grey[600]),
-        const SizedBox(width: 6),
-        Text(
-          text,
-          style: TextStyle(
-            fontSize: 13,
-            color: Colors.grey[700],
-            fontWeight: FontWeight.w500,
+        // Category Filter Tabs
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 4),
+          child: Row(
+            children: [
+              _buildCategoryTab(
+                title: 'All Rides',
+                icon: Icons.grid_view_rounded,
+                count: estimates.length,
+                isSelected: _selectedCategory == 'All',
+                onTap: () => setState(() => _selectedCategory = 'All'),
+              ),
+              if (bikes.isNotEmpty) ...[
+                const SizedBox(width: 8),
+                _buildCategoryTab(
+                  title: 'Bikes',
+                  icon: Icons.two_wheeler_rounded,
+                  count: bikes.length,
+                  startingFare: lowestBikeFare,
+                  isSelected: _selectedCategory == 'Bikes',
+                  onTap: () => setState(() => _selectedCategory = 'Bikes'),
+                ),
+              ],
+              if (autos.isNotEmpty) ...[
+                const SizedBox(width: 8),
+                _buildCategoryTab(
+                  title: 'Autos',
+                  icon: Icons.electric_rickshaw_rounded,
+                  count: autos.length,
+                  startingFare: lowestAutoFare,
+                  isSelected: _selectedCategory == 'Autos',
+                  onTap: () => setState(() => _selectedCategory = 'Autos'),
+                ),
+              ],
+              if (cabs.isNotEmpty) ...[
+                const SizedBox(width: 8),
+                _buildCategoryTab(
+                  title: 'Cabs',
+                  icon: Icons.directions_car_filled_rounded,
+                  count: cabs.length,
+                  startingFare: lowestCabFare,
+                  isSelected: _selectedCategory == 'Cabs',
+                  onTap: () => setState(() => _selectedCategory = 'Cabs'),
+                ),
+              ],
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 10),
+
+        // Route distance & time summary
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 18),
+          child: Row(
+            children: [
+              Text(
+                _selectedCategory == 'All'
+                    ? '${estimates.length} options found'
+                    : 'Showing $_selectedCategory',
+                style: const TextStyle(
+                  color: ResultsScreenModern._ink,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const Spacer(),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: ResultsScreenModern._border),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.speed_rounded,
+                        size: 14, color: Color(0xFF6B7280)),
+                    const SizedBox(width: 4),
+                    Text(
+                      '${estimate.distance.toStringAsFixed(1)} km · ~${estimate.duration} min',
+                      style: const TextStyle(
+                        color: Color(0xFF4B5563),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 8),
+
+        // Main categorized ride list
+        Expanded(
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(18, 4, 18, 30),
+            children: [
+              // BIKES SECTION
+              if ((_selectedCategory == 'All' || _selectedCategory == 'Bikes') &&
+                  bikes.isNotEmpty)
+                _buildRideSection(
+                  context: context,
+                  title: 'Bikes & Two-Wheelers',
+                  subtitle: 'Fastest in traffic · Pocket-friendly solo rides',
+                  icon: Icons.two_wheeler_rounded,
+                  iconColor: const Color(0xFFD97706),
+                  iconBg: const Color(0xFFFEF3C7),
+                  rides: bikes,
+                  overallCheapest: overallCheapest,
+                  categoryLowest: lowestBikeFare,
+                ),
+
+              // AUTOS SECTION
+              if ((_selectedCategory == 'All' || _selectedCategory == 'Autos') &&
+                  autos.isNotEmpty)
+                _buildRideSection(
+                  context: context,
+                  title: 'Auto Rickshaws',
+                  subtitle: 'Direct city travel · Economical 3-seater',
+                  icon: Icons.electric_rickshaw_rounded,
+                  iconColor: const Color(0xFF059669),
+                  iconBg: const Color(0xFFD1FAE5),
+                  rides: autos,
+                  overallCheapest: overallCheapest,
+                  categoryLowest: lowestAutoFare,
+                ),
+
+              // CABS SECTION
+              if ((_selectedCategory == 'All' || _selectedCategory == 'Cabs') &&
+                  cabs.isNotEmpty)
+                _buildRideSection(
+                  context: context,
+                  title: 'Cabs & Taxis',
+                  subtitle: 'Comfortable AC rides · Hatchbacks, Sedans & SUVs',
+                  icon: Icons.directions_car_filled_rounded,
+                  iconColor: const Color(0xFF4F46E5),
+                  iconBg: const Color(0xFFEEF2FF),
+                  rides: cabs,
+                  overallCheapest: overallCheapest,
+                  categoryLowest: lowestCabFare,
+                ),
+            ],
           ),
         ),
       ],
     );
   }
 
-  Color _getProviderColor(String provider) {
-    switch (provider.toLowerCase()) {
-      case 'uber':
-        return const Color(0xFF000000);
-      case 'ola':
-        return const Color(0xFF00D632);
-      case 'rapido':
-        return const Color(0xFFFDB913);
-      case 'namma yatri':
-        return const Color(0xFF0070F3);
-      case 'indrive':
-        return const Color(0xFF00C853);
-      default:
-        return const Color(0xFF5B47ED);
-    }
-  }
-
-  String _getProviderEmoji(String provider) {
-    switch (provider.toLowerCase()) {
-      case 'uber':
-        return '🚗';
-      case 'ola':
-        return '🚕';
-      case 'rapido':
-        return '🏍️';
-      case 'namma yatri':
-        return '🛺';
-      case 'indrive':
-        return '🚙';
-      default:
-        return '🚖';
-    }
-  }
-
-  void _bookCab(FareEstimate estimate) async {
-    final confirmed = await showModalBottomSheet<bool>(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (context) => Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.only(
-            topLeft: Radius.circular(32),
-            topRight: Radius.circular(32),
+  Widget _buildCategoryTab({
+    required String title,
+    required IconData icon,
+    required int count,
+    int? startingFare,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: isSelected ? ResultsScreenModern._ink : Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: isSelected
+                  ? ResultsScreenModern._ink
+                  : ResultsScreenModern._border,
+              width: 1.2,
+            ),
+            boxShadow: isSelected
+                ? const [
+                    BoxShadow(
+                      color: Color(0x1F000000),
+                      blurRadius: 8,
+                      offset: Offset(0, 3),
+                    )
+                  ]
+                : const [],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                icon,
+                size: 18,
+                color: isSelected
+                    ? ResultsScreenModern._yellow
+                    : const Color(0xFF6B7280),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                title,
+                style: TextStyle(
+                  color: isSelected ? Colors.white : ResultsScreenModern._ink,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(width: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? Colors.white.withValues(alpha: 0.2)
+                      : const Color(0xFFF3F4F6),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  startingFare != null
+                      ? '₹$startingFare'
+                      : '$count',
+                  style: TextStyle(
+                    color: isSelected ? Colors.white : const Color(0xFF4B5563),
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
-        padding: const EdgeInsets.all(28),
+      ),
+    );
+  }
+
+  Widget _buildRideSection({
+    required BuildContext context,
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required Color iconColor,
+    required Color iconBg,
+    required List<FareEstimate> rides,
+    required int overallCheapest,
+    int? categoryLowest,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 12),
+        // Section Header Banner
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: ResultsScreenModern._border),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: iconBg,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(icon, color: iconColor, size: 20),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          title,
+                          style: const TextStyle(
+                            color: ResultsScreenModern._ink,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF3F4F6),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            '${rides.length}',
+                            style: const TextStyle(
+                              color: Color(0xFF4B5563),
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: const TextStyle(
+                        color: Color(0xFF6B7280),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (categoryLowest != null)
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFECFDF5),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFFA7F3D0)),
+                  ),
+                  child: Text(
+                    'from ₹$categoryLowest',
+                    style: const TextStyle(
+                      color: Color(0xFF047857),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 10),
+
+        // Ride Cards in this section
+        for (final ride in rides) ...[
+          _buildRideCard(
+            context,
+            ride,
+            isOverallLowest: ride.estimatedFare == overallCheapest,
+            isCategoryLowest:
+                categoryLowest != null && ride.estimatedFare == categoryLowest,
+          ),
+          const SizedBox(height: 10),
+        ],
+        const SizedBox(height: 8),
+      ],
+    );
+  }
+
+  Widget _buildRideCard(
+    BuildContext context,
+    FareEstimate ride, {
+    required bool isOverallLowest,
+    required bool isCategoryLowest,
+  }) {
+    final icon = _providerIcon(ride);
+    final brandColor = _providerColor(ride);
+    final fareText = ride.fareMin == ride.fareMax
+        ? '₹${ride.estimatedFare}'
+        : '₹${ride.fareMin}–₹${ride.fareMax}';
+
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(18),
+      elevation: 0,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: () => _confirmBooking(context, ride),
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(
+              color: isOverallLowest
+                  ? const Color(0xFFE0B52E)
+                  : ResultsScreenModern._border,
+              width: isOverallLowest ? 2.0 : 1.0,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: isOverallLowest
+                    ? const Color(0x1CE0B52E)
+                    : const Color(0x08000000),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              // Provider / vehicle icon badge
+              Container(
+                width: 52,
+                height: 52,
+                decoration: BoxDecoration(
+                  color: brandColor.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Icon(icon, color: brandColor, size: 26),
+              ),
+              const SizedBox(width: 14),
+
+              // Ride details
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            ride.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: ResultsScreenModern._ink,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                        if (isOverallLowest) ...[
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: ResultsScreenModern._yellow,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: const Text(
+                              'CHEAPEST',
+                              style: TextStyle(
+                                color: ResultsScreenModern._ink,
+                                fontSize: 9,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: 0.3,
+                              ),
+                            ),
+                          ),
+                        ] else if (isCategoryLowest) ...[
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFDCFCE7),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: const Text(
+                              'BEST VALUE',
+                              style: TextStyle(
+                                color: Color(0xFF15803D),
+                                fontSize: 9,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: 0.3,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Text(
+                          ride.provider,
+                          style: TextStyle(
+                            color: brandColor,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        const Text('·',
+                            style: TextStyle(color: Color(0xFF9CA3AF))),
+                        const SizedBox(width: 6),
+                        const Icon(Icons.schedule_rounded,
+                            size: 13, color: Color(0xFF6B7280)),
+                        const SizedBox(width: 3),
+                        Text(
+                          '${ride.eta}m',
+                          style: const TextStyle(
+                            color: Color(0xFF6B7280),
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        const Text('·',
+                            style: TextStyle(color: Color(0xFF9CA3AF))),
+                        const SizedBox(width: 6),
+                        const Icon(Icons.person_rounded,
+                            size: 13, color: Color(0xFF6B7280)),
+                        const SizedBox(width: 2),
+                        Text(
+                          '${ride.capacity}',
+                          style: const TextStyle(
+                            color: Color(0xFF6B7280),
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(width: 10),
+
+              // Price & surge badge
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    fareText,
+                    style: const TextStyle(
+                      color: ResultsScreenModern._ink,
+                      fontSize: 17,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  if (ride.surgeMultiplier > 1) ...[
+                    const SizedBox(height: 2),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 5, vertical: 1.5),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFEF3C7),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        '${ride.surgeMultiplier.toStringAsFixed(1)}x surge',
+                        style: const TextStyle(
+                          color: Color(0xFFB45309),
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  IconData _providerIcon(FareEstimate ride) {
+    if (ride.isBike) return Icons.two_wheeler_rounded;
+    if (ride.isAuto) return Icons.electric_rickshaw_rounded;
+
+    switch (ride.provider.toLowerCase()) {
+      case 'rapido':
+        return Icons.two_wheeler_rounded;
+      case 'namma yatri':
+        return Icons.electric_rickshaw_rounded;
+      case 'uber':
+        return Icons.directions_car_filled_rounded;
+      case 'ola':
+        return Icons.local_taxi_rounded;
+      default:
+        return Icons.local_taxi_rounded;
+    }
+  }
+
+  Color _providerColor(FareEstimate ride) {
+    switch (ride.provider.toLowerCase()) {
+      case 'rapido':
+        return const Color(0xFFD97706);
+      case 'uber':
+        return ResultsScreenModern._ink;
+      case 'ola':
+        return const Color(0xFF059669);
+      case 'namma yatri':
+        return const Color(0xFF2563EB);
+      case 'indrive':
+        return const Color(0xFF0D9488);
+      default:
+        return const Color(0xFF4B5563);
+    }
+  }
+
+  Future<void> _confirmBooking(BuildContext context, FareEstimate ride) async {
+    final confirmed = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => Container(
+        margin: const EdgeInsets.only(top: 40),
+        padding: EdgeInsets.fromLTRB(
+          22,
+          16,
+          22,
+          24 + MediaQuery.of(context).viewInsets.bottom,
+        ),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.grey[300],
-                borderRadius: BorderRadius.circular(2),
+            Center(
+              child: Container(
+                width: 44,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFD1D5DB),
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
             ),
-            const SizedBox(height: 24),
-            Text(
-              'Confirm Booking',
-              style: const TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF1E293B),
-              ),
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Container(
+                  width: 46,
+                  height: 46,
+                  decoration: BoxDecoration(
+                    color: _providerColor(ride).withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Icon(_providerIcon(ride),
+                      color: _providerColor(ride), size: 24),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        ride.name,
+                        style: const TextStyle(
+                          color: ResultsScreenModern._ink,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      Text(
+                        '${ride.provider} · ${ride.vehicleType}',
+                        style: const TextStyle(
+                          color: Color(0xFF6B7280),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Text(
+                  '₹${ride.estimatedFare}',
+                  style: const TextStyle(
+                    color: ResultsScreenModern._ink,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 20),
             Container(
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: const Color(0xFFF8FAFC),
+                color: const Color(0xFFF9FAFB),
                 borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0xFFE5E7EB)),
               ),
               child: Column(
                 children: [
-                  _buildBookingDetailRow('Provider', estimate.provider),
-                  const Divider(height: 24),
-                  _buildBookingDetailRow('Service', estimate.name),
-                  const Divider(height: 24),
-                  _buildBookingDetailRow(
-                    'Estimated Fare',
-                    estimate.fareMin != estimate.fareMax
-                        ? '₹${estimate.fareMin} – ₹${estimate.fareMax}'
-                        : '₹${estimate.estimatedFare}',
+                  Row(
+                    children: [
+                      const Icon(Icons.my_location_rounded,
+                          size: 16, color: Color(0xFF10B981)),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          widget.pickup,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: ResultsScreenModern._ink,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                  const Divider(height: 24),
-                  _buildBookingDetailRow('Distance', '${estimate.distance.toStringAsFixed(1)} km'),
-                  const Divider(height: 24),
-                  _buildBookingDetailRow('ETA', '~${estimate.eta} min away'),
+                  const Divider(height: 18),
+                  Row(
+                    children: [
+                      const Icon(Icons.location_on_rounded,
+                          size: 16, color: Color(0xFFEF4444)),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          widget.destination,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: ResultsScreenModern._ink,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ],
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 22),
             Row(
               children: [
                 Expanded(
                   child: OutlinedButton(
                     onPressed: () => Navigator.pop(context, false),
                     style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      foregroundColor: ResultsScreenModern._ink,
+                      minimumSize: const Size.fromHeight(52),
+                      side: const BorderSide(color: Color(0xFFD1D5DB)),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(16),
                       ),
-                      side: BorderSide(color: Colors.grey[300]!),
                     ),
                     child: const Text(
                       'Cancel',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
+                      style: TextStyle(fontWeight: FontWeight.w700),
                     ),
                   ),
                 ),
@@ -910,195 +1022,101 @@ class _ResultsScreenModernState extends State<ResultsScreenModern>
                   child: ElevatedButton(
                     onPressed: () => Navigator.pop(context, true),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF5B47ED),
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      backgroundColor: ResultsScreenModern._yellow,
+                      foregroundColor: ResultsScreenModern._ink,
+                      minimumSize: const Size.fromHeight(52),
+                      elevation: 0,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(16),
                       ),
-                      elevation: 0,
                     ),
-                    child: const Text(
-                      'Confirm Booking',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          'Open ${ride.provider}',
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        const Icon(Icons.arrow_forward_rounded, size: 18),
+                      ],
                     ),
                   ),
                 ),
               ],
             ),
-            SizedBox(height: MediaQuery.of(context).viewInsets.bottom),
           ],
         ),
       ),
     );
 
-    if (confirmed == true && mounted) {
-      // Open the respective app
-      await _openRideApp(estimate);
+    if (confirmed != true || !context.mounted) return;
+    await _openProvider(context, ride);
+    if (!context.mounted) return;
 
-      if (!mounted) return;
-
-      // Also save booking in backend
-      final provider = Provider.of<FareProvider>(context, listen: false);
-      final success = await provider.bookCab(
-        userId: 'user123',
-        estimate: estimate,
-        pickup: widget.pickup,
-        destination: widget.destination,
-      );
-
-      if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            success
-                ? '🎉 Opening ${estimate.provider} app...'
-                : '❌ Booking failed. Please try again.',
-          ),
-          backgroundColor:
-              success ? const Color(0xFF10B981) : const Color(0xFFEF4444),
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          margin: const EdgeInsets.all(16),
-        ),
-      );
-    }
+    final provider = Provider.of<FareProvider>(context, listen: false);
+    await provider.bookCab(
+      userId: 'user123',
+      estimate: ride,
+      pickup: widget.pickup,
+      destination: widget.destination,
+    );
   }
 
-  Future<void> _openRideApp(FareEstimate estimate) async {
+  Future<void> _openProvider(BuildContext context, FareEstimate ride) async {
     final pickupLat = widget.pickupData['lat'];
     final pickupLng = widget.pickupData['lng'];
-    final destLat = widget.destinationData['lat'];
-    final destLng = widget.destinationData['lng'];
+    final destinationLat = widget.destinationData['lat'];
+    final destinationLng = widget.destinationData['lng'];
+    String appUrl;
+    String webUrl;
 
-    String? appUrl;
-    String? webUrl;
-
-    switch (estimate.provider.toLowerCase()) {
+    switch (ride.provider.toLowerCase()) {
       case 'uber':
-        // Uber deep link
         appUrl =
-            'uber://?action=setPickup&pickup[latitude]=$pickupLat&pickup[longitude]=$pickupLng&dropoff[latitude]=$destLat&dropoff[longitude]=$destLng';
-        webUrl =
-            'https://m.uber.com/ul/?action=setPickup&pickup[latitude]=$pickupLat&pickup[longitude]=$pickupLng&dropoff[latitude]=$destLat&dropoff[longitude]=$destLng';
+            'uber://?action=setPickup&pickup[latitude]=$pickupLat&pickup[longitude]=$pickupLng&dropoff[latitude]=$destinationLat&dropoff[longitude]=$destinationLng';
+        webUrl = 'https://m.uber.com/';
         break;
-
       case 'ola':
-        // Ola deep link
         appUrl =
-            'olacabs://app/launch?lat=$pickupLat&lng=$pickupLng&drop_lat=$destLat&drop_lng=$destLng';
-        webUrl =
-            'https://book.olacabs.com/?serviceType=p2p&lat=$pickupLat&lng=$pickupLng&drop_lat=$destLat&drop_lng=$destLng';
+            'olacabs://app/launch?lat=$pickupLat&lng=$pickupLng&drop_lat=$destinationLat&drop_lng=$destinationLng';
+        webUrl = 'https://book.olacabs.com/';
         break;
-
       case 'rapido':
         appUrl =
-            'rapido://ride?pickup_lat=$pickupLat&pickup_lng=$pickupLng&drop_lat=$destLat&drop_lng=$destLng';
+            'rapido://ride?pickup_lat=$pickupLat&pickup_lng=$pickupLng&drop_lat=$destinationLat&drop_lng=$destinationLng';
         webUrl = 'https://www.rapido.bike/';
         break;
-
       case 'namma yatri':
-        // Namma Yatri deep link (opens to Play Store if not installed)
         appUrl = 'in.juspay.nammayatri://app';
-        webUrl = 'https://play.google.com/store/apps/details?id=in.juspay.nammayatri';
+        webUrl =
+            'https://play.google.com/store/apps/details?id=in.juspay.nammayatri';
         break;
-
-      case 'indrive':
-        // inDrive deep link
-        appUrl = 'indrive://';
-        webUrl = 'https://play.google.com/store/apps/details?id=sinet.startup.inDriver';
-        break;
-
       default:
-        // Generic fallback - open Google Maps with directions
-        appUrl =
-            'https://www.google.com/maps/dir/?api=1&origin=$pickupLat,$pickupLng&destination=$destLat,$destLng';
-        webUrl = appUrl;
+        appUrl = 'indrive://';
+        webUrl =
+            'https://play.google.com/store/apps/details?id=sinet.startup.inDriver';
     }
 
     try {
-      // Try to launch the app-specific URL first
-      final Uri appUri = Uri.parse(appUrl);
+      final appUri = Uri.parse(appUrl);
       if (await canLaunchUrl(appUri)) {
         await launchUrl(appUri, mode: LaunchMode.externalApplication);
       } else {
-        // If app is not installed, open web version
-        final Uri webUri = Uri.parse(webUrl);
-        await launchUrl(webUri, mode: LaunchMode.externalApplication);
+        await launchUrl(Uri.parse(webUrl),
+            mode: LaunchMode.externalApplication);
       }
-    } catch (e) {
-      debugPrint('Error opening app: $e');
-      // Show error to user
-      if (!mounted) return;
-
+    } catch (_) {
+      if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-              'Could not open ${estimate.provider} app. Please install it first.'),
-          backgroundColor: const Color(0xFFEF4444),
+          content: Text('Couldn’t open ${ride.provider}.'),
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          margin: const EdgeInsets.all(16),
         ),
       );
     }
-  }
-
-  Widget _buildBookingDetailRow(String label, String value) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 15,
-            color: Colors.grey[600],
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        Text(
-          value,
-          style: const TextStyle(
-            fontSize: 16,
-            color: Color(0xFF1E293B),
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildStatChip(IconData icon, String value, String label, Color color) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 20, color: color),
-        const SizedBox(height: 4),
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 15,
-            fontWeight: FontWeight.bold,
-            color: color,
-          ),
-        ),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 10,
-            color: Colors.grey[500],
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-      ],
-    );
   }
 }

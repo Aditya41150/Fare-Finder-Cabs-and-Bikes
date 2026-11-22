@@ -192,6 +192,7 @@ class FareService {
   }
 
   // Calculate fallback fare with surge pricing
+  //  ------ core fare formula calculation
   calculateFallbackFare(serviceKey, distance) {
     const platform = this.platforms[serviceKey];
     const surgeMultiplier = this.getSurgeMultiplier(serviceKey);

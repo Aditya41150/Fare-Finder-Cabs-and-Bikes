@@ -11,31 +11,25 @@
 .svn/
 .swiftpm/
 migrate_working_dir/
-.env.example
+
 # IntelliJ related
 *.iml
 *.ipr
 *.iws
 .idea/
-.env
-# The .vscode folder contains launch configuration and tasks you configure in
-# VS Code which you may wish to be included in version control, so this line
-# is commented out by default.
-#.vscode/
-
 
 # API Keys and Secrets
 backend/.env
 .env
 *.env
-
-# Don't ignore .env.example
 !.env.example
 
-# Sensitive files
-AndroidManifest.xml
-web/index.html
-.env
+# Node.js dependencies
+node_modules/
+backend/node_modules/
+package-lock.json
+backend/package-lock.json
+
 # Flutter/Dart/Pub related
 **/doc/api/
 **/ios/Flutter/.last_build_id
@@ -56,5 +50,3 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
-
-.env

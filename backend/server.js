@@ -5,7 +5,7 @@ require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-// Accept either env var name to reduce misconfiguration:
+// Accept either env var name to reduce misconfiguratio n:
 // - backend expects GOOGLE_MAPS_API_KEY
 // - Flutter app commonly uses GOOGLE_PLACES_API_KEY
 const GOOGLE_API_KEY = process.env.GOOGLE_MAPS_API_KEY || process.env.GOOGLE_PLACES_API_KEY;
@@ -49,6 +49,7 @@ const MOCK_COORDINATES = {
   'mock_hyd_1': { lat: 17.3850, lng: 78.4867 },
   'mock_che_1': { lat: 13.0827, lng: 80.2707 },
 };
+const BOOKINGS = new Map();
 
 function getMockPredictions(input) {
   const query = String(input || '').toLowerCase();
@@ -185,9 +186,19 @@ app.get('/api/place-details', async (req, res) => {
 // 2. FARE ESTIMATION ROUTE
 app.post('/api/fare-estimate', async (req, res) => {
   try {
-    const { distance, duration } = req.body;
-    const distanceKm  = Number(distance) || 15.5;
-    const durationMin = Number(duration) / 60 || 30; // convert seconds → minutes
+    const { distance, duration, pickup, destination } = req.body;
+    if (!pickup || !destination) {
+      return res.status(400).json({ error: 'Pickup and destination are required' });
+    }
+    const distanceKm = Number(distance);
+    const durationSeconds = Number(duration);
+    if (!Number.isFinite(distanceKm) || distanceKm <= 0 || distanceKm > 500) {
+      return res.status(400).json({ error: 'A valid route distance is required' });
+    }
+    if (!Number.isFinite(durationSeconds) || durationSeconds <= 0) {
+      return res.status(400).json({ error: 'A valid route duration is required' });
+    }
+    const durationMin = durationSeconds / 60;
 
     // ── Real 2024/25 Indian surge logic ──────────────────────────────────────
     // Surge is per-provider and time-of-day based (lighter than the old 1.5x flat).
@@ -202,7 +213,7 @@ app.post('/api/fare-estimate', async (req, res) => {
     // All rates sourced from Bangalore (metro city) 2024/25 tariff cards.
     const services = [
       {
-        id: 'uber-go',
+        id: 'uber-go', 
         name: 'UberGo',
         provider: 'Uber',
         vehicleType: 'Hatchback',
@@ -337,9 +348,27 @@ app.post('/api/fare-estimate', async (req, res) => {
 
 // 3. BOOKING ROUTE
 app.post('/api/booking', (req, res) => {
-  const booking = { id: Date.now(), ...req.body, status: 'pending' };
+  const { userId, serviceId, pickup, destination, fare } = req.body;
+  if (!userId || !serviceId || !pickup || !destination || !Number.isFinite(Number(fare))) {
+    return res.status(400).json({ error: 'Invalid booking details' });
+  }
+  const booking = {
+    id: `${Date.now()}-${String(userId).slice(0, 8)}`,
+    ...req.body,
+    fare: Number(fare),
+    status: 'pending',
+  };
+  const userBookings = BOOKINGS.get(userId) || [];
+  userBookings.unshift(booking);
+  BOOKINGS.set(userId, userBookings.slice(0, 100));
   console.log('Booking Saved:', booking);
   res.json({ success: true, booking });
+});
+
+app.get('/api/bookings/:userId', (req, res) => {
+  const { userId } = req.params;
+  if (!userId) return res.status(400).json({ error: 'User ID is required' });
+  res.json({ success: true, bookings: BOOKINGS.get(userId) || [] });
 });
 // New route for real driving distance
 app.get('/api/distance', async (req, res) => {
@@ -352,8 +381,9 @@ app.get('/api/distance', async (req, res) => {
         params: {
           origins: origin,
           destinations: destination,
-          key: process.env.GOOGLE_MAPS_API_KEY
-        }
+          key: GOOGLE_API_KEY
+        },
+        timeout: 8000,
       }
     );
 

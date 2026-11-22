@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import '../models/place_prediction.dart';
 import '../services/places_service.dart';
 
@@ -24,10 +24,12 @@ class LocationAutocompleteModern extends StatefulWidget {
   });
 
   @override
-  State<LocationAutocompleteModern> createState() => _LocationAutocompleteModernState();
+  State<LocationAutocompleteModern> createState() =>
+      _LocationAutocompleteModernState();
 }
 
-class _LocationAutocompleteModernState extends State<LocationAutocompleteModern> {
+class _LocationAutocompleteModernState
+    extends State<LocationAutocompleteModern> {
   List<PlacePrediction> _suggestions = [];
   Timer? _debounce;
   bool _isLoading = false;
@@ -40,7 +42,8 @@ class _LocationAutocompleteModernState extends State<LocationAutocompleteModern>
       if (query.length > 2) {
         setState(() => _isLoading = true);
 
-        final predictions = await PlacesService.getAutocompletePredictions(query);
+        final predictions =
+            await PlacesService.getAutocompletePredictions(query);
 
         setState(() {
           _suggestions = predictions;
@@ -69,26 +72,29 @@ class _LocationAutocompleteModernState extends State<LocationAutocompleteModern>
           onChanged: _onQueryChanged,
           validator: widget.validator,
           style: const TextStyle(
-            color: Colors.white,
-            fontSize: 16,
-            fontWeight: FontWeight.w500,
+            color: Color(0xFF111827), // Solid black input text
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
           ),
+          cursorColor: const Color(0xFF111827),
           decoration: InputDecoration(
             labelText: widget.labelText,
             hintText: widget.hintText,
-            labelStyle: TextStyle(
-              color: Colors.white.withOpacity(0.8),
-              fontSize: 14,
+            labelStyle: const TextStyle(
+              color: Color(0xFF4B5563),
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
             ),
-            hintStyle: TextStyle(
-              color: Colors.white.withOpacity(0.5),
-              fontSize: 15,
+            hintStyle: const TextStyle(
+              color: Color(0xFF9CA3AF),
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
             ),
             prefixIcon: Container(
               margin: const EdgeInsets.all(12),
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: widget.iconColor.withOpacity(0.2),
+                color: widget.iconColor.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Icon(
@@ -98,24 +104,24 @@ class _LocationAutocompleteModernState extends State<LocationAutocompleteModern>
               ),
             ),
             suffixIcon: _isLoading
-                ? Padding(
-                    padding: const EdgeInsets.all(12.0),
+                ? const Padding(
+                    padding: EdgeInsets.all(12.0),
                     child: SizedBox(
                       width: 20,
                       height: 20,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
                         valueColor: AlwaysStoppedAnimation<Color>(
-                          Colors.white.withOpacity(0.8),
+                          Color(0xFF6B7280),
                         ),
                       ),
                     ),
                   )
                 : widget.controller.text.isNotEmpty
                     ? IconButton(
-                        icon: Icon(
+                        icon: const Icon(
                           Icons.clear_rounded,
-                          color: Colors.white.withOpacity(0.6),
+                          color: Color(0xFF6B7280),
                         ),
                         onPressed: () {
                           widget.controller.clear();
@@ -124,50 +130,50 @@ class _LocationAutocompleteModernState extends State<LocationAutocompleteModern>
                       )
                     : null,
             filled: true,
-            fillColor: Colors.white.withOpacity(0.15),
+            fillColor: const Color(0xFFF9FAFB),
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(20),
-              borderSide: BorderSide(
-                color: Colors.white.withOpacity(0.3),
-                width: 1.5,
+              borderRadius: BorderRadius.circular(16),
+              borderSide: const BorderSide(
+                color: Color(0xFFE5E7EB),
+                width: 1.2,
               ),
             ),
             enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(20),
-              borderSide: BorderSide(
-                color: Colors.white.withOpacity(0.3),
-                width: 1.5,
+              borderRadius: BorderRadius.circular(16),
+              borderSide: const BorderSide(
+                color: Color(0xFFE5E7EB),
+                width: 1.2,
               ),
             ),
             focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(20),
-              borderSide: BorderSide(
-                color: Colors.white.withOpacity(0.8),
-                width: 2,
+              borderRadius: BorderRadius.circular(16),
+              borderSide: const BorderSide(
+                color: Color(0xFF1F2933),
+                width: 1.8,
               ),
             ),
             errorBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(16),
               borderSide: const BorderSide(
-                color: Color(0xFFEF4444),
-                width: 2,
+                color: Color(0xFFDC2626),
+                width: 1.5,
               ),
             ),
             focusedErrorBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(16),
               borderSide: const BorderSide(
-                color: Color(0xFFEF4444),
-                width: 2,
+                color: Color(0xFFDC2626),
+                width: 1.8,
               ),
             ),
             errorStyle: const TextStyle(
-              color: Color(0xFFFFE5E5),
+              color: Color(0xFFDC2626),
               fontSize: 12,
               fontWeight: FontWeight.w500,
             ),
             contentPadding: const EdgeInsets.symmetric(
-              horizontal: 20,
-              vertical: 18,
+              horizontal: 18,
+              vertical: 16,
             ),
           ),
         ),
@@ -180,7 +186,7 @@ class _LocationAutocompleteModernState extends State<LocationAutocompleteModern>
               borderRadius: BorderRadius.circular(20),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.15),
+                  color: Colors.black.withValues(alpha: 0.15),
                   blurRadius: 20,
                   offset: const Offset(0, 8),
                 ),
@@ -218,7 +224,8 @@ class _LocationAutocompleteModernState extends State<LocationAutocompleteModern>
                             Container(
                               padding: const EdgeInsets.all(8),
                               decoration: BoxDecoration(
-                                color: const Color(0xFF5B47ED).withOpacity(0.1),
+                                color: const Color(0xFF5B47ED)
+                                    .withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(10),
                               ),
                               child: const Icon(

@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 import '../providers/fare_provider.dart';
@@ -20,6 +20,8 @@ class ResultsScreen extends StatefulWidget {
 }
 
 class _ResultsScreenState extends State<ResultsScreen> {
+  String _selectedCategory = 'All';
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -158,19 +160,55 @@ class _ResultsScreenState extends State<ResultsScreen> {
                   );
                 }
 
+                final estimates = provider.estimates;
+                final bikes = estimates.where((r) => r.isBike).toList();
+                final autos = estimates.where((r) => r.isAuto).toList();
+                final cabs = estimates.where((r) => r.isCab).toList();
+                final overallCheapest = estimates
+                    .map((r) => r.estimatedFare)
+                    .reduce((a, b) => a < b ? a : b);
+
                 return Column(
                   children: [
+                    // Category Filter Tabs
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 8),
+                      child: Row(
+                        children: [
+                          _buildFilterChip('All (${estimates.length})', 'All'),
+                          if (bikes.isNotEmpty) ...[
+                            const SizedBox(width: 8),
+                            _buildFilterChip(
+                                '🏍️ Bikes (${bikes.length})', 'Bikes'),
+                          ],
+                          if (autos.isNotEmpty) ...[
+                            const SizedBox(width: 8),
+                            _buildFilterChip(
+                                '🛺 Autos (${autos.length})', 'Autos'),
+                          ],
+                          if (cabs.isNotEmpty) ...[
+                            const SizedBox(width: 8),
+                            _buildFilterChip(
+                                '🚗 Cabs (${cabs.length})', 'Cabs'),
+                          ],
+                        ],
+                      ),
+                    ),
                     Padding(
-                      padding: const EdgeInsets.all(16.0),
+                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
                       child: Row(
                         children: [
                           Icon(Icons.info_outline,
-                              color: Colors.blue[600], size: 20),
+                              color: Colors.blue[600], size: 18),
                           const SizedBox(width: 8),
                           Text(
-                            '${provider.estimates.length} options found',
+                            _selectedCategory == 'All'
+                                ? '${estimates.length} options found'
+                                : 'Showing $_selectedCategory',
                             style: TextStyle(
-                              fontSize: 16,
+                              fontSize: 14,
                               fontWeight: FontWeight.w600,
                               color: Colors.grey[700],
                             ),
@@ -178,19 +216,19 @@ class _ResultsScreenState extends State<ResultsScreen> {
                           const Spacer(),
                           Container(
                             padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 6,
+                              horizontal: 10,
+                              vertical: 4,
                             ),
                             decoration: BoxDecoration(
                               color: Colors.green[100],
-                              borderRadius: BorderRadius.circular(15),
+                              borderRadius: BorderRadius.circular(12),
                             ),
                             child: Text(
-                              'Sorted by price',
+                              'Lowest ₹$overallCheapest',
                               style: TextStyle(
                                 fontSize: 12,
-                                color: Colors.green[700],
-                                fontWeight: FontWeight.w600,
+                                color: Colors.green[800],
+                                fontWeight: FontWeight.w700,
                               ),
                             ),
                           ),
@@ -198,24 +236,96 @@ class _ResultsScreenState extends State<ResultsScreen> {
                       ),
                     ),
                     Expanded(
-                      child: ListView.builder(
+                      child: ListView(
                         padding: const EdgeInsets.symmetric(horizontal: 16),
-                        itemCount: provider.estimates.length,
-                        itemBuilder: (context, index) {
-                          final estimate = provider.estimates[index];
-                          final isLowest = index == 0;
-
-                          return FareCard(
-                            estimate: estimate,
-                            isLowest: isLowest,
-                            onBook: () => _bookCab(estimate),
-                          );
-                        },
+                        children: [
+                          if ((_selectedCategory == 'All' ||
+                                  _selectedCategory == 'Bikes') &&
+                              bikes.isNotEmpty) ...[
+                            _buildSectionHeader(
+                                '🏍️ Bikes & Two-Wheelers', Colors.amber[800]!),
+                            for (final ride in bikes)
+                              FareCard(
+                                estimate: ride,
+                                isLowest: ride.estimatedFare == overallCheapest,
+                                onBook: () => _bookCab(ride),
+                              ),
+                            const SizedBox(height: 12),
+                          ],
+                          if ((_selectedCategory == 'All' ||
+                                  _selectedCategory == 'Autos') &&
+                              autos.isNotEmpty) ...[
+                            _buildSectionHeader(
+                                '🛺 Auto Rickshaws', Colors.teal[700]!),
+                            for (final ride in autos)
+                              FareCard(
+                                estimate: ride,
+                                isLowest: ride.estimatedFare == overallCheapest,
+                                onBook: () => _bookCab(ride),
+                              ),
+                            const SizedBox(height: 12),
+                          ],
+                          if ((_selectedCategory == 'All' ||
+                                  _selectedCategory == 'Cabs') &&
+                              cabs.isNotEmpty) ...[
+                            _buildSectionHeader(
+                                '🚗 Cabs & Taxis', Colors.blue[700]!),
+                            for (final ride in cabs)
+                              FareCard(
+                                estimate: ride,
+                                isLowest: ride.estimatedFare == overallCheapest,
+                                onBook: () => _bookCab(ride),
+                              ),
+                            const SizedBox(height: 12),
+                          ],
+                        ],
                       ),
                     ),
                   ],
                 );
               },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFilterChip(String label, String category) {
+    final isSelected = _selectedCategory == category;
+    return ChoiceChip(
+      label: Text(label),
+      selected: isSelected,
+      onSelected: (_) => setState(() => _selectedCategory = category),
+      selectedColor: Colors.blue[600],
+      labelStyle: TextStyle(
+        color: isSelected ? Colors.white : Colors.grey[800],
+        fontWeight: FontWeight.w600,
+        fontSize: 13,
+      ),
+    );
+  }
+
+  Widget _buildSectionHeader(String title, Color color) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 8, bottom: 8),
+      child: Row(
+        children: [
+          Container(
+            width: 4,
+            height: 18,
+            decoration: BoxDecoration(
+              color: color,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+              color: Colors.grey[800],
             ),
           ),
         ],

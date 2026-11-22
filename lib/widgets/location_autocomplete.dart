@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import '../models/place_prediction.dart';
 import '../services/places_service.dart';
 
@@ -63,9 +63,25 @@ class _LocationAutocompleteState extends State<LocationAutocomplete> {
           controller: widget.controller,
           onChanged: _onQueryChanged,
           validator: widget.validator,
+          style: const TextStyle(
+            color: Color(0xFF111827),
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+          ),
+          cursorColor: const Color(0xFF111827),
           decoration: InputDecoration(
             labelText: widget.labelText,
+            labelStyle: const TextStyle(
+              color: Color(0xFF4B5563),
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
             hintText: widget.hintText,
+            hintStyle: const TextStyle(
+              color: Color(0xFF9CA3AF),
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+            ),
             prefixIcon: Icon(widget.prefixIcon, color: widget.iconColor),
             suffixIcon: _isLoading
                 ? const SizedBox(
@@ -80,7 +96,21 @@ class _LocationAutocompleteState extends State<LocationAutocomplete> {
                       setState(() => _suggestions = []);
                     },
                   ),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+            filled: true,
+            fillColor: const Color(0xFFF9FAFB),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide:
+                  const BorderSide(color: Color(0xFF1F2933), width: 1.5),
+            ),
           ),
         ),
         if (_suggestions.isNotEmpty)

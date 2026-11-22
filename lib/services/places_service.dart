@@ -24,7 +24,10 @@ class PlacesService {
     String input,
   ) async {
     final apiKey = AppConfig.googlePlacesApiKey;
-    if (apiKey.isEmpty) return [];
+    if (apiKey.isEmpty) {
+      print('⚠️ Google Places API key is empty in AppConfig');
+      return [];
+    }
 
     final uri = Uri.parse(
       'https://maps.googleapis.com/maps/api/place/autocomplete/json',
@@ -37,17 +40,40 @@ class PlacesService {
       },
     );
 
-    final response = await http.get(uri);
-    if (response.statusCode != 200) return [];
+    try {
+      print('🌐 Calling Google Places API: $uri');
+      final response = await http.get(uri);
+      
+      print('📊 Google Places Response Status: ${response.statusCode}');
+      
+      if (response.statusCode != 200) {
+        print('❌ Google Places API returned non-200 status: ${response.statusCode}');
+        print('📄 Response body: ${response.body}');
+        return [];
+      }
 
-    final data = jsonDecode(response.body) as Map<String, dynamic>;
-    final status = data['status'] as String? ?? '';
-    final predictions = (data['predictions'] as List<dynamic>?) ?? [];
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      final status = data['status'] as String? ?? '';
+      
+      if (status != 'OK' && status != 'ZERO_RESULTS') {
+        print('❌ Google Places API Error Status: $status');
+        print('📄 Full Response body: ${response.body}');
+        if (data['error_message'] != null) {
+          print('💬 Error Message: ${data['error_message']}');
+        }
+        return [];
+      }
 
-    if (status != 'OK' && status != 'ZERO_RESULTS') return [];
-    return predictions
-        .map((item) => PlacePrediction.fromJson(item as Map<String, dynamic>))
-        .toList();
+      final predictions = (data['predictions'] as List<dynamic>?) ?? [];
+      print('✅ Google Places returned ${predictions.length} predictions');
+      
+      return predictions
+          .map((item) => PlacePrediction.fromJson(item as Map<String, dynamic>))
+          .toList();
+    } catch (e) {
+      print('❌ Exception calling Google Places API: $e');
+      return [];
+    }
   }
 
   // ─── App-side mock fallback (works on web without backend/Google) ─────────
@@ -131,7 +157,10 @@ class PlacesService {
     String placeId,
   ) async {
     final apiKey = AppConfig.googlePlacesApiKey;
-    if (apiKey.isEmpty) return null;
+    if (apiKey.isEmpty) {
+      print('⚠️ Google Places API key is empty');
+      return null;
+    }
 
     final uri = Uri.parse(
       'https://maps.googleapis.com/maps/api/place/details/json',
@@ -143,19 +172,41 @@ class PlacesService {
       },
     );
 
-    final response = await http.get(uri);
-    if (response.statusCode != 200) return null;
+    try {
+      print('🌐 Calling Google Place Details API: $uri');
+      final response = await http.get(uri);
+      
+      if (response.statusCode != 200) {
+        print('❌ Google Place Details API Error: ${response.statusCode}');
+        return null;
+      }
 
-    final data = jsonDecode(response.body) as Map<String, dynamic>;
-    if (data['status'] != 'OK') return null;
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      final status = data['status'] as String? ?? '';
+      
+      if (status != 'OK') {
+        print('❌ Google Place Details Status: $status');
+        if (data['error_message'] != null) {
+          print('💬 Error Message: ${data['error_message']}');
+        }
+        return null;
+      }
 
-    final location = data['result']?['geometry']?['location'];
-    if (location == null) return null;
+      final location = data['result']?['geometry']?['location'];
+      if (location == null) {
+        print('❌ No location found in Google response');
+        return null;
+      }
 
-    return {
-      'lat': (location['lat'] as num).toDouble(),
-      'lng': (location['lng'] as num).toDouble(),
-    };
+      print('✅ Google Place Details returned coordinates: ${location['lat']}, ${location['lng']}');
+      return {
+        'lat': (location['lat'] as num).toDouble(),
+        'lng': (location['lng'] as num).toDouble(),
+      };
+    } catch (e) {
+      print('❌ Exception in _getPlaceCoordinatesFromGoogle: $e');
+      return null;
+    }
   }
 
   static PlacePrediction _pickBestPrediction(
@@ -299,7 +350,6 @@ class PlacesService {
     }
   }
 
-  // Add these inside your PlacesService class
   static Future<Map<String, dynamic>?> getRoadDistance(
     String origin,
     String destination,
@@ -328,11 +378,16 @@ class PlacesService {
         : null;
   }
 
-  // Method 1: Get search suggestions
   static Future<List<PlacePrediction>> getAutocompletePredictions(
     String input,
   ) async {
     if (input.isEmpty) return [];
+
+    // Check if mock data is forced in config
+    if (AppConfig.useMockPlacesData) {
+      print('ℹ️ Using mock places data (forced in AppConfig)');
+      return _getMockPredictions(input);
+    }
 
     // On Android/iOS: call Google Places API directly first.
     // The hosted Render backend may be in mock-data mode (when its

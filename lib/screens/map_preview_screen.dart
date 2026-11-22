@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'dart:math';
 
@@ -43,7 +43,8 @@ class _MapScreenState extends State<MapScreen> {
 
     final c = 2 * atan2(sqrt(a), sqrt(1 - a));
     distance = earthRadius * c;
-    duration = ((distance! / 30) * 60).round(); // Assuming 30 km/h average speed
+    duration =
+        ((distance! / 30) * 60).round(); // Assuming 30 km/h average speed
   }
 
   @override
@@ -67,7 +68,7 @@ class _MapScreenState extends State<MapScreen> {
     final LatLng destLatLng = LatLng(lat2, lng2);
 
     return Scaffold(
-      backgroundColor: const Color(0xFF5B47ED),
+      backgroundColor: const Color(0xFFF7F7F5),
       appBar: AppBar(
         title: const Text(
           'Route Preview',
@@ -76,8 +77,8 @@ class _MapScreenState extends State<MapScreen> {
             fontSize: 20,
           ),
         ),
-        backgroundColor: const Color(0xFF5B47ED),
-        foregroundColor: Colors.white,
+        backgroundColor: const Color(0xFFF7F7F5),
+        foregroundColor: const Color(0xFF1F2933),
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_rounded),
@@ -88,7 +89,8 @@ class _MapScreenState extends State<MapScreen> {
         children: [
           // Google Map
           GoogleMap(
-            initialCameraPosition: CameraPosition(target: pickupLatLng, zoom: 14),
+            initialCameraPosition:
+                CameraPosition(target: pickupLatLng, zoom: 14),
             onMapCreated: (controller) {
               mapController = controller;
               _zoomToFit(pickupLatLng, destLatLng);
@@ -147,7 +149,8 @@ class _MapScreenState extends State<MapScreen> {
                         Container(
                           padding: const EdgeInsets.all(10),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF5B47ED).withValues(alpha: 0.1),
+                            color:
+                                const Color(0xFF5B47ED).withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: const Icon(
@@ -224,8 +227,8 @@ class _MapScreenState extends State<MapScreen> {
                   Navigator.pop(context);
                 },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF5B47ED),
-                  foregroundColor: Colors.white,
+                  backgroundColor: const Color(0xFFF6C744),
+                  foregroundColor: const Color(0xFF1F2933),
                   padding: const EdgeInsets.symmetric(vertical: 18),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(20),
@@ -255,7 +258,8 @@ class _MapScreenState extends State<MapScreen> {
     );
   }
 
-  Widget _buildModernInfoItem(IconData icon, String label, String value, Color color) {
+  Widget _buildModernInfoItem(
+      IconData icon, String label, String value, Color color) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8.0),
       child: Column(

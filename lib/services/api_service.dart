@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../models/fare_estimate.dart';
@@ -13,32 +14,46 @@ class ApiService {
     required Map<String, dynamic> pickup,
     required Map<String, dynamic> destination,
     required double distance,
-
     required double duration,
   }) async {
     try {
-      final response = await http.post(
-        Uri.parse('$baseUrl/fare-estimate'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'pickup': pickup,
-          'destination': destination,
-          'distance': distance,
-          'duration': duration,
-        }),
-      );
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/fare-estimate'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'pickup': pickup,
+              'destination': destination,
+              'distance': distance,
+              'duration': duration,
+            }),
+          )
+          .timeout(const Duration(seconds: 20));
 
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        final estimates = (data['estimates'] as List)
-            .map((json) => FareEstimate.fromJson(json))
+        final decoded = jsonDecode(response.body);
+        if (decoded is! Map<String, dynamic>) {
+          throw Exception('Invalid fare response');
+        }
+        final rawEstimates = decoded['estimates'];
+        if (rawEstimates is! List) {
+          throw Exception('No fare estimates returned');
+        }
+        final estimates = rawEstimates
+            .whereType<Map>()
+            .map((json) =>
+                FareEstimate.fromJson(Map<String, dynamic>.from(json)))
             .toList();
+        estimates.sort((a, b) => a.estimatedFare.compareTo(b.estimatedFare));
         return estimates;
       } else {
-        throw Exception('Failed to get fare estimates');
+        throw Exception('Fare service returned ${response.statusCode}');
       }
+    } on TimeoutException {
+      throw Exception('Fare service took too long. Please try again.');
     } catch (e) {
-      throw Exception('Error: $e');
+      if (e is Exception) rethrow;
+      throw Exception('Unable to get fare estimates');
     }
   }
 
