@@ -1,15 +1,23 @@
+import 'package:flutter/foundation.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:device_preview/device_preview.dart';
+import 'package:device_preview/presets.dart';
 import 'providers/fare_provider.dart';
 import 'screens/home_screen_modern.dart';
 import 'services/api_service.dart';
 
 Future<void> main() async {
-  // Ensure Flutter binding is initialized6
-  WidgetsFlutterBinding.ensureInitialized();
+  // 1. DevicePreview.enable() MUST be called first — it creates its own binding.
+  //    Calling WidgetsFlutterBinding.ensureInitialized() before it causes a crash.
+  //    Automatically disabled in release builds via kReleaseMode.
+  DevicePreview.enable(
+    enabled: !kReleaseMode,
+    padding: const EdgeInsets.all(24),
+  );
 
-  // Load environment variables with fallback.
+  // 2. Load environment variables with fallback.
   // NOTE: On Flutter Web, .env loading may fail — AppConfig has
   //       compile-time fallbacks so the app still works correctly.
   try {
@@ -23,11 +31,18 @@ Future<void> main() async {
     dotenv.testLoad(fileInput: '');
   }
 
-  // Fire-and-forget warm-up ping so the Render backend is awake
+  // 3. Apply initial device simulation preset (debug mode only)
+  if (!kReleaseMode) {
+    DevicePreview.maybeController?.applySimulation(
+      DevicePresets.iPhone16Pro.resolve(),
+    );
+  }
+
+  // 4. Fire-and-forget warm-up ping so the Render backend is awake
   // by the time the user taps "Find Best Rides".
   ApiService.pingBackend();
 
-  runApp(FareFinder());
+  runApp(const FareFinder());
 }
 
 class FareFinder extends StatelessWidget {
